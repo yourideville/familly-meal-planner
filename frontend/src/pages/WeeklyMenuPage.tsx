@@ -1,15 +1,5 @@
 import type { WeeklyMenuResponse } from "../types/domain";
-import type { Weekday } from "../types/domain";
-
-const weekDayLabels: Record<Weekday, string> = {
-  monday: "Lundi",
-  tuesday: "Mardi",
-  wednesday: "Mercredi",
-  thursday: "Jeudi",
-  friday: "Vendredi",
-  saturday: "Samedi",
-  sunday: "Dimanche",
-};
+import { WEEK_DAY_LABELS_FR } from "../constants/weekdays";
 
 interface WeeklyMenuPageProps {
   menu: WeeklyMenuResponse | null;
@@ -31,7 +21,7 @@ export function WeeklyMenuPage({ menu, onRefresh }: WeeklyMenuPageProps) {
       <ul className="menu-list">
         {menu?.items.map((item) => (
           <li key={item.day} className="menu-item">
-            <span className="day-pill">{weekDayLabels[item.day]}</span>
+            <span className="day-pill">{WEEK_DAY_LABELS_FR[item.day]}</span>
             <span>{item.dish?.name ?? "Pas encore de gagnant"}</span>
           </li>
         )) ?? <li className="empty">Aucun menu généré pour le moment.</li>}

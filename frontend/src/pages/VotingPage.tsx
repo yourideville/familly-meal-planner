@@ -1,27 +1,8 @@
 import { FormEvent, useState } from "react";
 
 import { createVote } from "../api/client";
+import { WEEK_DAYS, WEEK_DAY_LABELS_FR } from "../constants/weekdays";
 import type { Dish, Weekday } from "../types/domain";
-
-const weekDays: Weekday[] = [
-  "monday",
-  "tuesday",
-  "wednesday",
-  "thursday",
-  "friday",
-  "saturday",
-  "sunday",
-];
-
-const weekDayLabels: Record<Weekday, string> = {
-  monday: "Lundi",
-  tuesday: "Mardi",
-  wednesday: "Mercredi",
-  thursday: "Jeudi",
-  friday: "Vendredi",
-  saturday: "Samedi",
-  sunday: "Dimanche",
-};
 
 interface VotingPageProps {
   dishes: Dish[];
@@ -62,9 +43,9 @@ export function VotingPage({ dishes }: VotingPageProps) {
         <label>
           Jour
           <select value={day} onChange={(event) => setDay(event.target.value as Weekday)}>
-            {weekDays.map((item) => (
+            {WEEK_DAYS.map((item) => (
               <option key={item} value={item}>
-                {weekDayLabels[item]}
+                {WEEK_DAY_LABELS_FR[item]}
               </option>
             ))}
           </select>
