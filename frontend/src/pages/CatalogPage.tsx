@@ -6,16 +6,33 @@ interface CatalogPageProps {
 
 export function CatalogPage({ dishes }: CatalogPageProps) {
   return (
-    <section>
-      <h2>Dish Catalog</h2>
-      <ul>
-        {dishes.map((dish) => (
-          <li key={dish.id}>
-            <strong>{dish.name}</strong>
-            {dish.tags.length > 0 ? ` (${dish.tags.join(", ")})` : ""}
-          </li>
-        ))}
-      </ul>
+    <section className="card">
+      <div className="section-head">
+        <h2>Catalogue des plats</h2>
+        <p>{dishes.length} plats disponibles</p>
+      </div>
+      {dishes.length === 0 ? (
+        <p className="empty">Aucun plat disponible pour le moment.</p>
+      ) : (
+        <ul className="dish-list">
+          {dishes.map((dish) => (
+            <li key={dish.id} className="dish-item">
+              <div>
+                <strong>{dish.name}</strong>
+              </div>
+              {dish.tags.length > 0 && (
+                <div className="tags">
+                  {dish.tags.map((tag) => (
+                    <span key={`${dish.id}-${tag}`} className="tag">
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
     </section>
   );
 }

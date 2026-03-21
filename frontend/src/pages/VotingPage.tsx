@@ -13,6 +13,16 @@ const weekDays: Weekday[] = [
   "sunday",
 ];
 
+const weekDayLabels: Record<Weekday, string> = {
+  monday: "Lundi",
+  tuesday: "Mardi",
+  wednesday: "Mercredi",
+  thursday: "Jeudi",
+  friday: "Vendredi",
+  saturday: "Samedi",
+  sunday: "Dimanche",
+};
+
 interface VotingPageProps {
   dishes: Dish[];
 }
@@ -26,40 +36,43 @@ export function VotingPage({ dishes }: VotingPageProps) {
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!dishId) {
-      setMessage("Please select a dish.");
+      setMessage("Veuillez sélectionner un plat.");
       return;
     }
 
     try {
       await createVote({ user_name: userName, dish_id: dishId, day });
-      setMessage("Vote submitted.");
+      setMessage("Vote enregistré.");
     } catch {
-      setMessage("Could not submit vote.");
+      setMessage("Impossible d'envoyer le vote.");
     }
   }
 
   return (
-    <section>
-      <h2>Voting</h2>
+    <section className="card">
+      <div className="section-head">
+        <h2>Vote</h2>
+        <p>Exprimez votre préférence du jour.</p>
+      </div>
       <form onSubmit={onSubmit} className="stack">
         <label>
-          Your name
+          Votre nom
           <input value={userName} onChange={(event) => setUserName(event.target.value)} />
         </label>
         <label>
-          Day
+          Jour
           <select value={day} onChange={(event) => setDay(event.target.value as Weekday)}>
             {weekDays.map((item) => (
               <option key={item} value={item}>
-                {item}
+                {weekDayLabels[item]}
               </option>
             ))}
           </select>
         </label>
         <label>
-          Dish
+          Plat
           <select value={dishId} onChange={(event) => setDishId(event.target.value)}>
-            <option value="">Select one</option>
+            <option value="">Sélectionnez un plat</option>
             {dishes.map((dish) => (
               <option key={dish.id} value={dish.id}>
                 {dish.name}
@@ -67,9 +80,9 @@ export function VotingPage({ dishes }: VotingPageProps) {
             ))}
           </select>
         </label>
-        <button type="submit">Submit vote</button>
+        <button type="submit">Envoyer le vote</button>
       </form>
-      {message && <p>{message}</p>}
+      {message && <p className="info">{message}</p>}
     </section>
   );
 }
