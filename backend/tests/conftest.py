@@ -12,8 +12,7 @@ from app.services import store
 
 @pytest.fixture(autouse=True)
 def reset_store() -> None:
-    store._dishes.clear()
-    store._votes.clear()
+    store.reset_store()
     store.seed_data()
 
 

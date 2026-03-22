@@ -1,5 +1,10 @@
 # Family Meal Planner Guidelines
 
+## Language Requirements
+- **Code**: All variable names, function names, classes, imports, and code logic must be in **English**.
+- **Documentation & Comments**: All docstrings, comments, commit messages, and planning documents (plan.md) must be in **English**.
+- **UI Only**: User-facing text (labels, buttons, error messages, page titles) can be in **French** since this is for a French family.
+
 ## Code Style
 - **Backend**: Follow FastAPI architecture rules in [.github/instructions/backend-fastapi-architecture.instructions.md](.github/instructions/backend-fastapi-architecture.instructions.md)
 - **Frontend**: Follow React TypeScript rules in [.github/instructions/frontend-react-typescript.instructions.md](.github/instructions/frontend-react-typescript.instructions.md)
@@ -15,7 +20,8 @@
 - **Frontend**: `npm run dev` for development, `npm run build` for production.
 
 ## Conventions
-- Use French text for UI labels, buttons, and error messages.
+- Use French text **only** for UI labels, buttons, and user-facing error messages (display strings).
+- Code identifiers (variable, function, class names) must always be in English.
 - Keep services deterministic for testability (resettable state).
 - Explicit Pydantic response models in all API endpoints.
 - Type hints on all backend functions.

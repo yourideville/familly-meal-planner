@@ -5,6 +5,7 @@ import { getDishes, getWeeklyMenu } from "./api/client";
 import { CatalogPage } from "./pages/CatalogPage";
 import { VotingPage } from "./pages/VotingPage";
 import { WeeklyMenuPage } from "./pages/WeeklyMenuPage";
+import { AdminPage } from "./pages/AdminPage";
 import type { Dish, WeeklyMenuResponse } from "./types/domain";
 
 export default function App() {
@@ -49,14 +50,18 @@ export default function App() {
             Vote
           </NavLink>
           <NavLink to="/menu" className={({ isActive }) => (isActive ? "active" : "")}>
-            Menu hebdomadaire
+            Menu hebdomadaire{menu?.finalized ? " (validé)" : ""}
+          </NavLink>
+          <NavLink to="/admin" className={({ isActive }) => (isActive ? "active" : "")}>
+            Admin
           </NavLink>
         </nav>
         {error && <p className="error">{error}</p>}
         <Routes>
           <Route path="/" element={<CatalogPage dishes={dishes} />} />
-          <Route path="/vote" element={<VotingPage dishes={dishes} />} />
+          <Route path="/vote" element={<VotingPage dishes={dishes} menu={menu} />} />
           <Route path="/menu" element={<WeeklyMenuPage menu={menu} onRefresh={loadMenu} />} />
+          <Route path="/admin" element={<AdminPage dishes={dishes} refreshDishes={loadDishes} refreshMenu={loadMenu} menu={menu} />} />
         </Routes>
       </div>
     </main>

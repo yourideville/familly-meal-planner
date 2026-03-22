@@ -1,18 +1,27 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useMemo, useState } from "react";
 
 import { createVote } from "../api/client";
 import { WEEK_DAYS, WEEK_DAY_LABELS_FR } from "../constants/weekdays";
-import type { Dish, Weekday } from "../types/domain";
+import type { Dish, WeeklyMenuResponse, Weekday } from "../types/domain";
 
 interface VotingPageProps {
   dishes: Dish[];
+  menu: WeeklyMenuResponse | null;
 }
 
-export function VotingPage({ dishes }: VotingPageProps) {
+export function VotingPage({ dishes, menu }: VotingPageProps) {
   const [userName, setUserName] = useState("Alex");
   const [dishId, setDishId] = useState("");
   const [day, setDay] = useState<Weekday>("monday");
   const [message, setMessage] = useState("");
+
+  const availableDishes = useMemo(() => {
+    const shortlist = menu?.shortlists?.[day] ?? [];
+    if (shortlist.length > 0) {
+      return dishes.filter(dish => shortlist.includes(dish.id));
+    }
+    return dishes;
+  }, [dishes, menu, day]);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -54,7 +63,7 @@ export function VotingPage({ dishes }: VotingPageProps) {
           Plat
           <select value={dishId} onChange={(event) => setDishId(event.target.value)}>
             <option value="">Sélectionnez un plat</option>
-            {dishes.map((dish) => (
+            {availableDishes.map((dish) => (
               <option key={dish.id} value={dish.id}>
                 {dish.name}
               </option>

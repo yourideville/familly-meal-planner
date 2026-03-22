@@ -36,5 +36,11 @@ class MenuItem(BaseModel):
     dish: Dish | None
 
 
+class SetMenuItemRequest(BaseModel):
+    dish_id: str | None
+
+
 class WeeklyMenuResponse(BaseModel):
     items: list[MenuItem]
+    finalized: bool = False
+    shortlists: dict[Weekday, list[str]] = Field(default_factory=dict)

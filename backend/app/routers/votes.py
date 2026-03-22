@@ -16,4 +16,9 @@ def post_vote(payload: CreateVoteRequest) -> Vote:
     dish_ids = {dish.id for dish in store.list_dishes()}
     if payload.dish_id not in dish_ids:
         raise HTTPException(status_code=404, detail="Dish not found")
-    return store.add_vote(payload)
+    try:
+        return store.add_vote(payload)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Dish not found")
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))

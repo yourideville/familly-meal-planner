@@ -157,6 +157,23 @@ Deployment workflow (CDK):
 
 ---
 
+### Admin functionality (MVP+)
+
+- `admin/dishes` CRUD endpoints:
+  - `GET /admin/dishes`
+  - `POST /admin/dishes`
+  - `PUT /admin/dishes/{id}`
+  - `DELETE /admin/dishes/{id}`
+- `admin/menu/shortlist/{day}` - set a shortlist of dish candidates for a given day
+- `admin/menu/validate` - lock/finalize the weekly menu
+- **Backend**: implemented `finalized` state + `shortlists` per day + business constraints (no more votes or modifications after validation)
+- **Frontend**: new **Admin** page accessible from navigation menu with:
+  - dish catalog management (create/update/delete)
+  - shortlist per day (multi-select checkboxes)
+  - weekly menu validation button
+  - display finalized status and shortlist state
+- **Tests**: backend coverage for admin CRUD + menu validation + shortlist filtering
+
 ### Next steps
 
 1. Initialize **CDK app** in `infra/cdk/` (language: Python).

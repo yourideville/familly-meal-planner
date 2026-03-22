@@ -13,6 +13,12 @@ export interface Dish {
   tags: string[];
 }
 
+export interface Vote {
+  user_name: string;
+  dish_id: string;
+  day: Weekday;
+}
+
 export interface VotePayload {
   user_name: string;
   dish_id: string;
@@ -26,4 +32,6 @@ export interface WeeklyMenuItem {
 
 export interface WeeklyMenuResponse {
   items: WeeklyMenuItem[];
+  finalized?: boolean;
+  shortlists?: Partial<Record<Weekday, string[]>>;
 }
