@@ -14,6 +14,11 @@ import {
   validateWeeklyMenu,
   updateMember,
 } from "../api/client";
+import { AdminMembersSection } from "../components/admin/AdminMembersSection";
+import { AdminCatalogSection } from "../components/admin/AdminCatalogSection";
+import { AdminVotesSection } from "../components/admin/AdminVotesSection";
+import { AdminMenuSection } from "../components/admin/AdminMenuSection";
+import { AdminSectionNav } from "../components/admin/AdminSectionNav";
 import { WEEK_DAY_LABELS_FR, WEEK_DAYS } from "../constants/weekdays";
 import { MEAL_LABELS_FR, MEALS } from "../constants/meals";
 import type {
@@ -34,6 +39,7 @@ interface AdminPageProps {
 }
 
 type AvailabilityMap = Record<Weekday, Record<Meal, boolean>>;
+type AdminTab = "members" | "catalog" | "votes" | "menu";
 
 const initialAvailability: AvailabilityMap = {
   monday: { lunch: true, dinner: true },
@@ -60,6 +66,13 @@ const categoryLabel = (category: DishCategory) => {
   }
 };
 
+const sectionLabels: Record<AdminTab, string> = {
+  members: "Membres",
+  catalog: "Catalogue",
+  votes: "Votes",
+  menu: "Menu",
+};
+
 export function AdminPage({ dishes, refreshDishes, refreshMenu, menu }: AdminPageProps) {
   const [newDishName, setNewDishName] = useState("");
   const [newDishTags, setNewDishTags] = useState("");
@@ -73,6 +86,7 @@ export function AdminPage({ dishes, refreshDishes, refreshMenu, menu }: AdminPag
   const [selectedShortlist, setSelectedShortlist] = useState<string[]>([]);
   const [selectedManualDish, setSelectedManualDish] = useState("");
   const [message, setMessage] = useState("");
+  const [selectedSection, setSelectedSection] = useState<AdminTab>("members");
   const [votes, setVotes] = useState<Vote[]>([]);
 
   useEffect(() => {
@@ -282,9 +296,9 @@ export function AdminPage({ dishes, refreshDishes, refreshMenu, menu }: AdminPag
     try {
       await setMenuItem(selectedDay, selectedMeal, selectedManualDish || null);
       await refreshMenu();
-      setMessage("Override de plat enregistré.");
+      setMessage("Remplacement manuel enregistré.");
     } catch {
-      setMessage("Impossible d'enregistrer l'override.");
+      setMessage("Impossible d'enregistrer le remplacement manuel.");
     }
   }
 
@@ -292,205 +306,82 @@ export function AdminPage({ dishes, refreshDishes, refreshMenu, menu }: AdminPag
     <section className="card">
       <div className="section-head">
         <h2>Administration</h2>
-        <p>Gestion des membres, disponibilité, catalogue et menu.</p>
+        <p>Navigation par section pour une gestion plus simple du foyer.</p>
       </div>
-      <div className="stack">
-        <form onSubmit={onAddMember} className="inline-form">
-          <label>
-            Nouveau membre
-            <input value={newMemberName} onChange={(event) => setNewMemberName(event.target.value)} />
-          </label>
-          <button type="submit">Ajouter membre</button>
-        </form>
 
-        <div>
-          <h3>Membres</h3>
-          <ul className="member-list">
-            {members.map((member) => (
-              <li key={member} className="member-item">
-                <span>{member}</span>
-                <input
-                  value={memberEdits[member] ?? member}
-                  onChange={(event) => setMemberEdits((prev) => ({ ...prev, [member]: event.target.value }))}
-                />
-                <button onClick={() => void onUpdateMember(member)} type="button">
-                  Renommer
-                </button>
-                <button onClick={() => void onDeleteMember(member)} type="button">
-                  Supprimer
-                </button>
-              </li>
-            ))}
-          </ul>
-        </div>
+      <AdminSectionNav
+        sections={(Object.keys(sectionLabels) as AdminTab[]).map((section) => ({
+          id: section,
+          label: sectionLabels[section],
+        }))}
+        selectedSection={selectedSection}
+        onSelect={setSelectedSection}
+      />
 
-        <form onSubmit={onAddDish} className="inline-form">
-          <label>
-            Nom du plat
-            <input value={newDishName} onChange={(event) => setNewDishName(event.target.value)} />
-          </label>
-          <label>
-            Tags (virgule séparés)
-            <input value={newDishTags} onChange={(event) => setNewDishTags(event.target.value)} />
-          </label>
-          <label>
-            Catégorie
-            <select value={newDishCategory} onChange={(event) => setNewDishCategory(event.target.value as DishCategory)}>
-              <option value="lunch">Déjeuner</option>
-              <option value="dinner">Dîner</option>
-              <option value="weekends_lunch">Weekend déjeuner</option>
-              <option value="saturday_dinner">Samedi dîner</option>
-            </select>
-          </label>
-          <button type="submit">Ajouter plat</button>
-        </form>
+      {message && <p className="info">{message}</p>}
 
-        <div>
-          <h3>Catalogue</h3>
-          {dishes.length === 0 ? (
-            <p>Aucun plat</p>
-          ) : (
-            <ul className="dish-list">
-              {dishes.map((dish) => (
-                <li key={dish.id}>
-                  <strong>{dish.name}</strong> ({categoryLabel(dish.category)}) {dish.tags.join(", ")}
-                  <button onClick={() => void onDeleteDish(dish.id)} type="button">
-                    supprimer
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
+      {selectedSection === "members" && (
+        <AdminMembersSection
+          members={members}
+          memberEdits={memberEdits}
+          newMemberName={newMemberName}
+          onNewMemberNameChange={setNewMemberName}
+          onAddMember={onAddMember}
+          onUpdateMember={onUpdateMember}
+          onDeleteMember={onDeleteMember}
+          onMemberEditChange={(name, value) => setMemberEdits((prev) => ({ ...prev, [name]: value }))}
+        />
+      )}
 
-        <div>
-          <h3>Disponibilité des votes</h3>
-          <table className="availability-table">
-            <thead>
-              <tr>
-                <th>Jour</th>
-                {MEALS.map((meal) => (
-                  <th key={meal}>{MEAL_LABELS_FR[meal]}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {WEEK_DAYS.map((day) => (
-                <tr key={day}>
-                  <td>{WEEK_DAY_LABELS_FR[day]}</td>
-                  {MEALS.map((meal) => (
-                    <td key={meal}>
-                      <button onClick={() => void onToggleAvailability(day, meal)} type="button">
-                        {availability[day][meal] ? "Ouvert" : "Fermé"}
-                      </button>
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+      {selectedSection === "catalog" && (
+        <AdminCatalogSection
+          dishes={dishes}
+          newDishName={newDishName}
+          newDishTags={newDishTags}
+          newDishCategory={newDishCategory}
+          onNewDishNameChange={setNewDishName}
+          onNewDishTagsChange={setNewDishTags}
+          onNewDishCategoryChange={setNewDishCategory}
+          onAddDish={onAddDish}
+          onDeleteDish={onDeleteDish}
+        />
+      )}
 
-        <div>
-          <h3>Shortlist par créneau</h3>
-          <label>
-            Jour
-            <select value={selectedDay} onChange={(event) => setSelectedDay(event.target.value as Weekday)}>
-              {WEEK_DAYS.map((day) => (
-                <option key={day} value={day}>
-                  {WEEK_DAY_LABELS_FR[day]}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Repas
-            <select value={selectedMeal} onChange={(event) => setSelectedMeal(event.target.value as Meal)}>
-              {MEALS.map((meal) => (
-                <option key={meal} value={meal}>
-                  {MEAL_LABELS_FR[meal]}
-                </option>
-              ))}
-            </select>
-          </label>
-          <div className="shortlist-grid">
-            {dishes.map((dish) => (
-              <label key={dish.id}>
-                <input
-                  type="checkbox"
-                  checked={selectedShortlist.includes(dish.id)}
-                  onChange={(event) => {
-                    if (event.target.checked) {
-                      setSelectedShortlist((prev) => [...prev, dish.id]);
-                    } else {
-                      setSelectedShortlist((prev) => prev.filter((id) => id !== dish.id));
-                    }
-                  }}
-                />
-                {dish.name}
-              </label>
-            ))}
-          </div>
-          <button onClick={onSetShortlist} type="button">
-            Enregistrer shortlist
-          </button>
-          <p>
-            Shortlist actuelle pour {WEEK_DAY_LABELS_FR[selectedDay]} {MEAL_LABELS_FR[selectedMeal]} : {shortlist
-              .map((id) => dishes.find((dish) => dish.id === id)?.name)
-              .filter(Boolean)
-              .join(", ") || "(vide)"}
-          </p>
-        </div>
+      {selectedSection === "votes" && (
+        <AdminVotesSection
+          dishes={dishes}
+          availability={availability}
+          selectedDay={selectedDay}
+          selectedMeal={selectedMeal}
+          selectedShortlist={selectedShortlist}
+          onSelectDay={setSelectedDay}
+          onSelectMeal={setSelectedMeal}
+          onToggleAvailability={onToggleAvailability}
+          onToggleShortlist={(dishId, selected) => {
+            setSelectedShortlist((prev) =>
+              selected ? [...prev, dishId] : prev.filter((id) => id !== dishId),
+            );
+          }}
+          onSetShortlist={onSetShortlist}
+          shortlist={shortlist}
+        />
+      )}
 
-        <div>
-          <h3>Override manuel par créneau</h3>
-          <label>
-            Jour
-            <select value={selectedDay} onChange={(event) => setSelectedDay(event.target.value as Weekday)}>
-              {WEEK_DAYS.map((day) => (
-                <option key={day} value={day}>
-                  {WEEK_DAY_LABELS_FR[day]}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Repas
-            <select value={selectedMeal} onChange={(event) => setSelectedMeal(event.target.value as Meal)}>
-              {MEALS.map((meal) => (
-                <option key={meal} value={meal}>
-                  {MEAL_LABELS_FR[meal]}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Plat manuel
-            <select value={selectedManualDish} onChange={(event) => setSelectedManualDish(event.target.value)}>
-              <option value="">Utiliser les votes</option>
-              {dishes.map((dish) => (
-                <option key={dish.id} value={dish.id}>{dish.name}</option>
-              ))}
-            </select>
-          </label>
-          <button onClick={onSetManualMenu} type="button">
-            Enregistrer override
-          </button>
-        </div>
-
-        <div>
-          <h3>Validation finale</h3>
-          <button onClick={onValidateMenu} type="button" disabled={menu?.finalized}>
-            Valider menu hebdomadaire
-          </button>
-          <button onClick={onUnvalidateMenu} type="button" disabled={!menu?.finalized}>
-            Dévalider menu hebdomadaire
-          </button>
-          <p>État finalisé : {menu?.finalized ? "oui" : "non"}</p>
-        </div>
-
-        {message && <p className="info">{message}</p>}
-      </div>
+      {selectedSection === "menu" && (
+        <AdminMenuSection
+          dishes={dishes}
+          selectedDay={selectedDay}
+          selectedMeal={selectedMeal}
+          selectedManualDish={selectedManualDish}
+          onSelectDay={setSelectedDay}
+          onSelectMeal={setSelectedMeal}
+          onSelectManualDish={setSelectedManualDish}
+          onSetManualMenu={onSetManualMenu}
+          onValidateMenu={onValidateMenu}
+          onUnvalidateMenu={onUnvalidateMenu}
+          menu={menu}
+        />
+      )}
     </section>
   );
 }
