@@ -1,5 +1,6 @@
 import type { WeeklyMenuResponse } from "../types/domain";
 import { WEEK_DAY_LABELS_FR } from "../constants/weekdays";
+import { MEAL_LABELS_FR, MEALS } from "../constants/meals";
 
 interface WeeklyMenuPageProps {
   menu: WeeklyMenuResponse | null;
@@ -7,6 +8,16 @@ interface WeeklyMenuPageProps {
 }
 
 export function WeeklyMenuPage({ menu, onRefresh }: WeeklyMenuPageProps) {
+  const itemsByDay = menu?.items.reduce<Record<string, Record<string, string>>>(
+    (acc, item) => {
+      const dayGroup = acc[item.day] ?? { lunch: "Pas encore de gagnant", dinner: "Pas encore de gagnant" };
+      dayGroup[item.meal] = item.dish?.name ?? "Pas encore de gagnant";
+      acc[item.day] = dayGroup;
+      return acc;
+    },
+    {},
+  );
+
   return (
     <section className="card">
       <div className="section-head section-head-row">
@@ -18,14 +29,26 @@ export function WeeklyMenuPage({ menu, onRefresh }: WeeklyMenuPageProps) {
           Actualiser le menu
         </button>
       </div>
-      <ul className="menu-list">
-        {menu?.items.map((item) => (
-          <li key={item.day} className="menu-item">
-            <span className="day-pill">{WEEK_DAY_LABELS_FR[item.day]}</span>
-            <span>{item.dish?.name ?? "Pas encore de gagnant"}</span>
-          </li>
-        )) ?? <li className="empty">Aucun menu généré pour le moment.</li>}
-      </ul>
+      <table className="weekly-menu-table">
+        <thead>
+          <tr>
+            <th>Jour</th>
+            {MEALS.map((meal) => (
+              <th key={meal}>{MEAL_LABELS_FR[meal]}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {Object.keys(itemsByDay ?? {}).map((day) => (
+            <tr key={day}>
+              <td>{WEEK_DAY_LABELS_FR[day as keyof typeof WEEK_DAY_LABELS_FR]}</td>
+              {MEALS.map((meal) => (
+                <td key={meal}>{itemsByDay?.[day]?.[meal] ?? "Pas encore de gagnant"}</td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </section>
   );
 }

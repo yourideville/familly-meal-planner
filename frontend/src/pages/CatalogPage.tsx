@@ -1,24 +1,55 @@
-import type { Dish } from "../types/domain";
+import { useMemo, useState } from "react";
+import type { Dish, DishCategory } from "../types/domain";
+
+const categoryLabels: Record<DishCategory, string> = {
+  lunch: "Déjeuner",
+  dinner: "Dîner",
+  weekends_lunch: "Weekend déjeuner",
+  saturday_dinner: "Samedi dîner",
+};
 
 interface CatalogPageProps {
   dishes: Dish[];
 }
 
 export function CatalogPage({ dishes }: CatalogPageProps) {
+  const [categoryFilter, setCategoryFilter] = useState<DishCategory | "all">("all");
+
+  const filteredDishes = useMemo(
+    () => (categoryFilter === "all" ? dishes : dishes.filter((dish) => dish.category === categoryFilter)),
+    [categoryFilter, dishes],
+  );
+
   return (
     <section className="card">
       <div className="section-head">
         <h2>Catalogue des plats</h2>
-        <p>{dishes.length} plats disponibles</p>
+        <p>{filteredDishes.length} plats disponibles</p>
       </div>
-      {dishes.length === 0 ? (
+      <div className="filters">
+        <button type="button" onClick={() => setCategoryFilter("all")} className={categoryFilter === "all" ? "active" : ""}>
+          Tous
+        </button>
+        {Object.entries(categoryLabels).map(([key, label]) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => setCategoryFilter(key as DishCategory)}
+            className={categoryFilter === key ? "active" : ""}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      {filteredDishes.length === 0 ? (
         <p className="empty">Aucun plat disponible pour le moment.</p>
       ) : (
         <ul className="dish-list">
-          {dishes.map((dish) => (
+          {filteredDishes.map((dish) => (
             <li key={dish.id} className="dish-item">
               <div>
                 <strong>{dish.name}</strong>
+                <span className="category-label">{categoryLabels[dish.category]}</span>
               </div>
               {dish.tags.length > 0 && (
                 <div className="tags">

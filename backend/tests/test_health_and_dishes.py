@@ -13,11 +13,12 @@ def test_get_dishes_returns_seed_data(client: TestClient) -> None:
 
     assert response.status_code == 200
     dishes = response.json()
-    assert len(dishes) == 3
+    assert len(dishes) == 4
     assert {dish["name"] for dish in dishes} == {
         "Spaghetti Bolognese",
         "Chicken Curry",
         "Vegetable Stir Fry",
+        "Grilled Salmon",
     }
 
 

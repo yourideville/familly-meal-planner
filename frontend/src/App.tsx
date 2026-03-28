@@ -59,7 +59,7 @@ export default function App() {
         {error && <p className="error">{error}</p>}
         <Routes>
           <Route path="/" element={<CatalogPage dishes={dishes} />} />
-          <Route path="/vote" element={<VotingPage dishes={dishes} menu={menu} />} />
+          <Route path="/vote" element={<VotingPage dishes={dishes} />} />
           <Route path="/menu" element={<WeeklyMenuPage menu={menu} onRefresh={loadMenu} />} />
           <Route path="/admin" element={<AdminPage dishes={dishes} refreshDishes={loadDishes} refreshMenu={loadMenu} menu={menu} />} />
         </Routes>

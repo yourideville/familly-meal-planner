@@ -5,3 +5,9 @@ __pycache__/
 node_modules/
 dist/
 *.tsbuildinfo
+
+# Local test artifacts and coverage
+backend/.coverage
+frontend/playwright-report/
+frontend/test-results/
+frontend/tmp-playwright-output/

@@ -21,4 +21,7 @@ def post_vote(payload: CreateVoteRequest) -> Vote:
     except KeyError:
         raise HTTPException(status_code=404, detail="Dish not found")
     except ValueError as exc:
-        raise HTTPException(status_code=409, detail=str(exc))
+        detail = str(exc)
+        if detail == "Member not found":
+            raise HTTPException(status_code=404, detail=detail)
+        raise HTTPException(status_code=409, detail=detail)

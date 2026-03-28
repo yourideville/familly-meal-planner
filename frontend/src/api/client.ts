@@ -1,4 +1,13 @@
-import type { Dish, Vote, VotePayload, WeeklyMenuResponse } from "../types/domain";
+import type {
+  Dish,
+  FamilyMember,
+  Meal,
+  Vote,
+  VotePayload,
+  WeeklyMenuResponse,
+  VoteSlot,
+  DishCategory,
+} from "../types/domain";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
 
@@ -14,11 +23,54 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     throw new Error(`API request failed: ${response.status}`);
   }
 
+  if (response.status === 204) {
+    return undefined as unknown as T;
+  }
+
   return response.json() as Promise<T>;
 }
 
 export function getDishes(): Promise<Dish[]> {
   return request<Dish[]>("/dishes");
+}
+
+export function getMembers(): Promise<string[]> {
+  return request<string[]>("/admin/members");
+}
+
+export function createMember(payload: FamilyMember): Promise<string> {
+  return request<string>("/admin/members", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function updateMember(name: string, payload: FamilyMember): Promise<string> {
+  return request<string>(`/admin/members/${encodeURIComponent(name)}`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function deleteMember(name: string): Promise<void> {
+  return request<void>(`/admin/members/${encodeURIComponent(name)}`, {
+    method: "DELETE",
+  });
+}
+
+export function getVoteAvailability(): Promise<VoteSlot[]> {
+  return request<VoteSlot[]>("/admin/vote-availability");
+}
+
+export function setVoteAvailability(slots: VoteSlot[]): Promise<VoteSlot[]> {
+  return request<VoteSlot[]>("/admin/vote-availability", {
+    method: "PUT",
+    body: JSON.stringify(slots),
+  });
+}
+
+export function getDishCategories(): Promise<DishCategory[]> {
+  return request<DishCategory[]>("/admin/dishes/categories");
 }
 
 export function createVote(payload: VotePayload): Promise<VotePayload> {
@@ -56,17 +108,17 @@ export function deleteDish(id: string): Promise<void> {
   });
 }
 
-export function setMenuItem(day: string, dishId: string | null): Promise<WeeklyMenuResponse> {
-  return request<WeeklyMenuResponse>(`/admin/menu/item/${day}`, {
+export function setMenuItem(day: string, meal: Meal, dishId: string | null): Promise<WeeklyMenuResponse> {
+  return request<WeeklyMenuResponse>("/admin/menu/item", {
     method: "PUT",
-    body: JSON.stringify({ dish_id: dishId }),
+    body: JSON.stringify({ day, meal, dish_id: dishId }),
   });
 }
 
-export function setShortlist(day: string, dishIds: string[]): Promise<WeeklyMenuResponse> {
-  return request<WeeklyMenuResponse>(`/admin/menu/shortlist/${day}`, {
+export function setShortlist(day: string, meal: Meal, dishIds: string[]): Promise<WeeklyMenuResponse> {
+  return request<WeeklyMenuResponse>("/admin/menu/shortlist", {
     method: "PUT",
-    body: JSON.stringify(dishIds),
+    body: JSON.stringify([{ day, meal, dish_ids: dishIds }]),
   });
 }
 
