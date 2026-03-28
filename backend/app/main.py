@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.routers import admin, dishes, health, menu, votes
+from app.routers import admin, dishes, health, members, menu, votes
 
 app = FastAPI(title="Family Meal Planner MVP")
 
@@ -17,4 +17,5 @@ app.include_router(health.router, tags=["health"])
 app.include_router(dishes.router, prefix="/dishes", tags=["dishes"])
 app.include_router(votes.router, prefix="/votes", tags=["votes"])
 app.include_router(menu.router, prefix="/weekly-menu", tags=["weekly-menu"])
+app.include_router(members.router, prefix="/members", tags=["members"])
 app.include_router(admin.router, prefix="/admin", tags=["admin"])

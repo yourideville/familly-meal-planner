@@ -1,6 +1,12 @@
 from fastapi.testclient import TestClient
 
 
+def login_admin(client: TestClient) -> None:
+    response = client.post("/admin/login", json={"username": "admin", "password": "password"})
+    assert response.status_code == 200
+    assert response.json() == {"authenticated": True}
+
+
 def _first_dish_id(client: TestClient) -> str:
     response = client.get("/dishes")
     assert response.status_code == 200
@@ -10,6 +16,7 @@ def _first_dish_id(client: TestClient) -> str:
 
 
 def _set_slot_availability(client: TestClient, day: str, meal: str, available: bool) -> list[dict[str, object]]:
+    login_admin(client)
     response = client.get("/admin/vote-availability")
     assert response.status_code == 200
     slots = response.json()
@@ -105,6 +112,7 @@ def test_generate_weekly_menu_returns_winner_for_each_slot(client: TestClient) -
 
 
 def test_admin_shortlist_and_validate_menu(client: TestClient) -> None:
+    login_admin(client)
     dishes = client.get("/dishes").json()
     first = dishes[0]["id"]
     second = dishes[1]["id"]
@@ -133,6 +141,7 @@ def test_admin_shortlist_and_validate_menu(client: TestClient) -> None:
 
 
 def test_admin_crud_dish(client: TestClient) -> None:
+    login_admin(client)
     payload = {"name": "Nouvelle salade", "tags": ["healthy"], "category": "lunch"}
     create_response = client.post("/admin/dishes", json=payload)
     assert create_response.status_code == 200
@@ -163,6 +172,7 @@ def test_admin_manual_menu_item_and_unvalidate(client: TestClient) -> None:
     client.post("/votes", json={"user_name": "Cara", "dish_id": second, "day": "monday", "meal": "lunch"})
 
     menu_response = client.get("/weekly-menu")
+    login_admin(client)
     monday_lunch = next(item for item in menu_response.json()["items"] if item["day"] == "monday" and item["meal"] == "lunch")
     assert monday_lunch["dish"]["id"] == first
 

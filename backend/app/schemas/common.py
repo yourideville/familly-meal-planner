@@ -34,6 +34,15 @@ class FamilyMember(BaseModel):
     name: str
 
 
+class AdminLoginRequest(BaseModel):
+    username: str
+    password: str
+
+
+class AdminSessionResponse(BaseModel):
+    authenticated: bool
+
+
 class VoteSlot(BaseModel):
     day: Weekday
     meal: Meal

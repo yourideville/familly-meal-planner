@@ -13,6 +13,7 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
+    credentials: "include",
     headers: {
       "Content-Type": "application/json",
     },
@@ -35,7 +36,7 @@ export function getDishes(): Promise<Dish[]> {
 }
 
 export function getMembers(): Promise<string[]> {
-  return request<string[]>("/admin/members");
+  return request<string[]>("/members");
 }
 
 export function createMember(payload: FamilyMember): Promise<string> {
@@ -69,8 +70,34 @@ export function setVoteAvailability(slots: VoteSlot[]): Promise<VoteSlot[]> {
   });
 }
 
+interface AdminLoginPayload {
+  username: string;
+  password: string;
+}
+
+interface AdminSessionResponse {
+  authenticated: boolean;
+}
+
 export function getDishCategories(): Promise<DishCategory[]> {
   return request<DishCategory[]>("/admin/dishes/categories");
+}
+
+export function loginAdmin(payload: AdminLoginPayload): Promise<AdminSessionResponse> {
+  return request<AdminSessionResponse>("/admin/login", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function logoutAdmin(): Promise<AdminSessionResponse> {
+  return request<AdminSessionResponse>("/admin/logout", {
+    method: "POST",
+  });
+}
+
+export function checkAdminSession(): Promise<AdminSessionResponse> {
+  return request<AdminSessionResponse>("/admin/session");
 }
 
 export function createVote(payload: VotePayload): Promise<VotePayload> {

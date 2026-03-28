@@ -5,6 +5,12 @@ test.describe('Voting Page', () => {
     await page.goto('/vote');
   });
 
+  test('loads member options without admin login', async ({ page }) => {
+    const options = page.getByLabel('Membre').locator('option');
+    const count = await options.count();
+    expect(count).toBeGreaterThan(1);
+  });
+
   test('does not expose closed vote meals for the selected day', async ({ page }) => {
     const availabilityResponse = await page.request.get('http://127.0.0.1:8000/admin/vote-availability');
     expect(availabilityResponse.ok()).toBeTruthy();

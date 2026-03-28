@@ -72,6 +72,17 @@ body {
   color: var(--muted);
 }
 
+.top-actions {
+  display: grid;
+  gap: 0.9rem;
+  margin-bottom: 1rem;
+}
+
+.auth-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
 .nav {
   display: flex;
   gap: 0.5rem;
