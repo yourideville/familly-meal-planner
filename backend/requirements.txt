@@ -3,3 +3,5 @@ uvicorn[standard]
 pytest
 pytest-cov
 httpx
+boto3
+mangum

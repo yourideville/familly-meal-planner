@@ -16,8 +16,12 @@
 
 ## Build and Test
 - **Full stack**: `docker compose up --build` (frontend: http://localhost:5173, backend: http://localhost:8000/docs)
+- **Python commands**: activate the repository Python environment before running any Python command or test.
+  - Use: `source /home/youri/Projects/Sources/.venv/bin/activate`
+  - If `activate-python` is available, it may also work, but prefer the explicit `source` command.
 - **Backend tests**: `pytest` in backend/ directory, minimum 80% coverage enforced. See [.github/instructions/testing-coverage-gate.instructions.md](.github/instructions/testing-coverage-gate.instructions.md)
 - **Frontend**: `npm run dev` for development, `npm run build` for production.
+- **AWS deployment**: use the CDK app in `infra/cdk` and follow `.github/instructions/aws-cdk-deployment.instructions.md`.
 
 ## Conventions
 - Use French text **only** for UI labels, buttons, and user-facing error messages (display strings).
