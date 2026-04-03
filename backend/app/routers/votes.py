@@ -13,9 +13,6 @@ def get_votes() -> list[Vote]:
 
 @router.post("", response_model=Vote)
 def post_vote(payload: CreateVoteRequest) -> Vote:
-    dish_ids = {dish.id for dish in store.list_dishes()}
-    if payload.dish_id not in dish_ids:
-        raise HTTPException(status_code=404, detail="Dish not found")
     try:
         return store.add_vote(payload)
     except KeyError:

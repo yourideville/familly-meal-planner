@@ -4,7 +4,6 @@ from app.schemas.common import CreateDishRequest, Dish
 from app.services import store
 
 router = APIRouter()
-store.seed_data()
 
 
 @router.get("", response_model=list[Dish])
