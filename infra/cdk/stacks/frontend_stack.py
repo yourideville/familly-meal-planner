@@ -23,14 +23,11 @@ class FrontendStack(Stack):
             auto_delete_objects=True,
         )
 
-        origin_access_identity = cloudfront.OriginAccessIdentity(self, "FrontendOAI")
-        self.bucket.grant_read(origin_access_identity)
-
         distribution = cloudfront.Distribution(
             self,
             "FrontendDistribution",
             default_behavior=cloudfront.BehaviorOptions(
-                origin=origins.S3Origin(self.bucket, origin_access_identity=origin_access_identity),
+                origin=origins.S3BucketOrigin.with_origin_access_control(self.bucket),
                 viewer_protocol_policy=cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
             ),
             default_root_object="index.html",
@@ -47,19 +44,15 @@ class FrontendStack(Stack):
 
         frontend_dist = Path(__file__).resolve().parent.parent / ".." / ".." / "frontend" / "dist"
         frontend_dist = frontend_dist.resolve()
-        if not frontend_dist.exists():
-            raise FileNotFoundError(
-                f"Frontend assets not found at {frontend_dist}. Run `npm --prefix ../../frontend run build` before deploying.`"
+        if frontend_dist.exists():
+            s3_deployment.BucketDeployment(
+                self,
+                "FrontendAssetDeployment",
+                destination_bucket=self.bucket,
+                sources=[s3_deployment.Source.asset(str(frontend_dist))],
+                distribution=distribution,
+                distribution_paths=["/*"],
             )
-
-        s3_deployment.BucketDeployment(
-            self,
-            "FrontendAssetDeployment",
-            destination_bucket=self.bucket,
-            sources=[s3_deployment.Source.asset(str(frontend_dist))],
-            distribution=distribution,
-            distribution_paths=["/*"],
-        )
 
         CfnOutput(self, "FrontendBucketName", value=self.bucket.bucket_name)
         CfnOutput(self, "FrontendUrl", value=f"https://{distribution.distribution_domain_name}")
