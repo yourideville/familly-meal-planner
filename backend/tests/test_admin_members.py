@@ -1,10 +1,6 @@
 from fastapi.testclient import TestClient
 
-
-def login_admin(client: TestClient) -> None:
-    response = client.post("/admin/login", json={"username": "admin", "password": "password"})
-    assert response.status_code == 200
-    assert response.json() == {"authenticated": True}
+from conftest import login_admin
 
 
 def test_admin_routes_require_authentication(client: TestClient) -> None:

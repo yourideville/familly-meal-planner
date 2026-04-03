@@ -21,3 +21,9 @@ def reset_store() -> None:
 @pytest.fixture
 def client() -> TestClient:
     return TestClient(app)
+
+
+def login_admin(client: TestClient) -> None:
+    response = client.post("/admin/login", json={"username": "admin", "password": "password"})
+    assert response.status_code == 200
+    assert response.json() == {"authenticated": True}

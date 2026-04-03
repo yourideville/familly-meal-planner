@@ -1,7 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 
 from app.core.auth import (
+    ADMIN_SESSION_COOKIE,
     get_current_admin,
+    invalidate_session,
     is_admin_authenticated,
     login_admin,
     logout_admin,
@@ -34,7 +36,10 @@ def post_admin_login(payload: AdminLoginRequest, response: Response) -> AdminSes
 
 
 @router.post("/logout", response_model=AdminSessionResponse)
-def post_admin_logout(response: Response) -> AdminSessionResponse:
+def post_admin_logout(request: Request, response: Response) -> AdminSessionResponse:
+    token = request.cookies.get(ADMIN_SESSION_COOKIE)
+    if token:
+        invalidate_session(token)
     logout_admin(response)
     return AdminSessionResponse(authenticated=False)
 
@@ -129,7 +134,7 @@ def delete_dish(dish_id: str) -> None:
 @protected_router.put("/menu/shortlist", response_model=WeeklyMenuResponse)
 def put_shortlist(payload: list[SetShortlistRequest]) -> WeeklyMenuResponse:
     try:
-        store.set_shortlists([slot.model_dump() for slot in payload])
+        store.set_shortlists(payload)
         return store.generate_weekly_menu()
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc))

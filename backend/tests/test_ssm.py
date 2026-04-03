@@ -11,7 +11,8 @@ class DummySSMClient:
 
 
 def test_get_admin_password_from_ssm(monkeypatch):
-    monkeypatch.setattr(ssm_module.boto3, "client", lambda service_name: DummySSMClient())
+    import boto3 as boto3_module
+    monkeypatch.setattr(boto3_module, "client", lambda service_name: DummySSMClient())
 
     value = ssm_module.get_admin_password("/family-meal-planner/dev/admin-password")
 
