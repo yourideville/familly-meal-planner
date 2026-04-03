@@ -581,6 +581,9 @@ def generate_weekly_menu(allow_generate_final: bool = False) -> WeeklyMenuRespon
 
 
 def seed_data() -> None:
+    if _USE_DYNAMODB:
+        return
+
     if _dishes:
         return
 
