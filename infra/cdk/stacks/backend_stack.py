@@ -1,4 +1,4 @@
-from aws_cdk import CfnOutput, Duration, Stack, aws_apigatewayv2_alpha as apigw, aws_apigatewayv2_integrations_alpha as integrations, aws_lambda as lambda_
+from aws_cdk import CfnOutput, Duration, RemovalPolicy, Stack, aws_apigatewayv2_alpha as apigw, aws_apigatewayv2_integrations_alpha as integrations, aws_lambda as lambda_, aws_ssm as ssm
 from aws_cdk.aws_lambda_python_alpha import PythonFunction
 from constructs import Construct
 
@@ -17,6 +17,16 @@ class BackendStack(Stack):
     ) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
+        admin_password_parameter = ssm.StringParameter(
+            self,
+            "AdminPasswordParameter",
+            parameter_name=f"/family-meal-planner/{stage}/admin-password",
+            string_value="CHANGEME",
+            description="Admin password for the Family Meal Planner application",
+            parameter_type=ssm.ParameterType.SECURE_STRING,
+        )
+        admin_password_parameter.apply_removal_policy(RemovalPolicy.DESTROY)
+
         self.backend_function = PythonFunction(
             self,
             "BackendFunction",
@@ -31,9 +41,12 @@ class BackendStack(Stack):
                 "VOTES_TABLE_NAME": votes_table.table_name,
                 "WEEKLY_MENUS_TABLE_NAME": weekly_menus_table.table_name,
                 "STAGE": stage,
-                "BACKEND_PERSISTENCE_MODE": "memory",
+                "BACKEND_PERSISTENCE_MODE": "dynamodb",
+                "ADMIN_PASSWORD_PARAMETER_NAME": admin_password_parameter.parameter_name,
             },
         )
+
+        admin_password_parameter.grant_read(self.backend_function)
 
         dishes_table.grant_read_write_data(self.backend_function)
         members_table.grant_read_write_data(self.backend_function)

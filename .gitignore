@@ -6,6 +6,11 @@ node_modules/
 dist/
 *.tsbuildinfo
 
+cdk.out/
+
+dishes.csv
+members.csv
+
 # Local test artifacts and coverage
 backend/.coverage
 frontend/playwright-report/
