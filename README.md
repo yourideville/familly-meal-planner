@@ -85,7 +85,7 @@ python -m pip install -r requirements.txt
 Build the frontend before deployment:
 
 ```bash
-cd ../frontend
+cd ../../frontend
 npm install
 npm run build
 cd ../infra/cdk
@@ -107,6 +107,35 @@ The CDK app deploys separate stacks for infrastructure:
 - `DynamoDbStack` for DynamoDB persistence tables
 - `BackendStack` for the Lambda API and HTTP API
 - `FrontendStack` for the S3 bucket and CloudFront distribution
+
+## Admin password configuration
+
+The backend now stores the admin password in AWS Systems Manager Parameter Store as a string parameter. The parameter is created at deploy time at:
+
+- `/family-meal-planner/<stage>/admin-password`
+
+It is seeded with a placeholder value `CHANGEME` and should be updated manually before using admin login.
+
+## Data upload and cleanup script
+
+A management script is available at `scripts/manage_data.py`.
+
+Example usage:
+
+```bash
+source /home/youri/Projects/Sources/.venv/bin/activate
+python scripts/manage_data.py \
+  --api-url http://localhost:8000 \
+  --admin-password YOUR_ADMIN_PASSWORD \
+  --members-csv scripts/sample_members.csv \
+  --dishes-csv scripts/sample_dishes.csv
+```
+
+To delete all dishes and members from the backend:
+
+```bash
+python scripts/manage_data.py --api-url http://localhost:8000 --admin-password YOUR_ADMIN_PASSWORD --cleanup
+```
 
 ## Notes
 

@@ -62,5 +62,5 @@ class FrontendStack(Stack):
         )
 
         CfnOutput(self, "FrontendBucketName", value=self.bucket.bucket_name)
-        CfnOutput(self, "FrontendUrl", value=distribution.distribution_domain_name)
+        CfnOutput(self, "FrontendUrl", value=f"https://{distribution.distribution_domain_name}")
         CfnOutput(self, "BackendApiUrlForFrontend", value=api_url)
