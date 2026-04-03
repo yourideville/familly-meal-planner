@@ -10,6 +10,7 @@ ADMIN_PASSWORD_PARAMETER_NAME = os.getenv("ADMIN_PASSWORD_PARAMETER_NAME")
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "password")
 ADMIN_SESSION_COOKIE = "family_meal_planner_admin_session"
 _USE_SECURE_COOKIE = os.getenv("SECURE_COOKIE", "").lower() in ("1", "true", "yes")
+_COOKIE_SAMESITE: str = os.getenv("COOKIE_SAMESITE", "lax").lower()
 
 _active_sessions: set[str] = set()
 
@@ -46,7 +47,7 @@ def login_admin(response: Response, username: str, password: str) -> None:
         key=ADMIN_SESSION_COOKIE,
         value=token,
         httponly=True,
-        samesite="lax",
+        samesite=_COOKIE_SAMESITE,
         secure=_USE_SECURE_COOKIE,
     )
 

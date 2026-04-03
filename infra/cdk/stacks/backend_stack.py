@@ -31,6 +31,9 @@ class BackendStack(Stack):
                 "STAGE": stage,
                 "BACKEND_PERSISTENCE_MODE": "dynamodb",
                 "ADMIN_PASSWORD_PARAMETER_NAME": admin_password_parameter_name,
+                "CORS_ALLOWED_ORIGINS": "*",
+                "SECURE_COOKIE": "true",
+                "COOKIE_SAMESITE": "none",
             },
         )
 
@@ -51,11 +54,6 @@ class BackendStack(Stack):
             default_integration=integrations.HttpLambdaIntegration(
                 "HttpApiIntegration",
                 handler=self.backend_function,
-            ),
-            cors_preflight=apigw.CorsPreflightOptions(
-                allow_origins=["*"],
-                allow_methods=[apigw.CorsHttpMethod.ANY],
-                allow_headers=["Content-Type", "Authorization", "Cookie"],
             ),
         )
 
