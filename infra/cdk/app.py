@@ -25,10 +25,7 @@ backend_stack = BackendStack(
     app,
     f"meal-planner-backend-{stage}",
     stage=stage,
-    dishes_table=data_stack.dishes_table,
-    members_table=data_stack.members_table,
-    votes_table=data_stack.votes_table,
-    weekly_menus_table=data_stack.weekly_menus_table,
+    table=data_stack.table,
     env=env,
 )
 

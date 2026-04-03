@@ -6,15 +6,31 @@ from stacks.dynamodb_stack import DynamoDbStack
 from stacks.frontend_stack import FrontendStack
 
 
-def test_dynamodb_stack_creates_four_tables():
+def test_dynamodb_stack_creates_single_table_with_gsi():
     app = cdk.App()
     stack = DynamoDbStack(app, "TestDataStack", stage="test")
     template = Template.from_stack(stack)
 
-    template.resource_count_is("AWS::DynamoDB::Table", 4)
+    template.resource_count_is("AWS::DynamoDB::Table", 1)
     template.has_resource_properties(
         "AWS::DynamoDB::Table",
-        {"BillingMode": "PAY_PER_REQUEST"},
+        {
+            "BillingMode": "PAY_PER_REQUEST",
+            "KeySchema": [
+                {"AttributeName": "PK", "KeyType": "HASH"},
+                {"AttributeName": "SK", "KeyType": "RANGE"},
+            ],
+            "GlobalSecondaryIndexes": [
+                {
+                    "IndexName": "GSI1",
+                    "KeySchema": [
+                        {"AttributeName": "GSI1PK", "KeyType": "HASH"},
+                        {"AttributeName": "GSI1SK", "KeyType": "RANGE"},
+                    ],
+                    "Projection": {"ProjectionType": "ALL"},
+                },
+            ],
+        },
     )
 
 
@@ -25,10 +41,7 @@ def test_backend_stack_creates_lambda_and_http_api():
         app,
         "TestBackendStack",
         stage="test",
-        dishes_table=data_stack.dishes_table,
-        members_table=data_stack.members_table,
-        votes_table=data_stack.votes_table,
-        weekly_menus_table=data_stack.weekly_menus_table,
+        table=data_stack.table,
     )
     template = Template.from_stack(stack)
 

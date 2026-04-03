@@ -12,39 +12,21 @@ class DynamoDbStack(Stack):
     ) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
-        table_props = {
-            "billing_mode": dynamodb.BillingMode.PAY_PER_REQUEST,
-            "removal_policy": RemovalPolicy.DESTROY,
-        }
+        removal_policy = RemovalPolicy.DESTROY if stage == "dev" else RemovalPolicy.RETAIN
 
-        self.dishes_table = dynamodb.Table(
+        self.table = dynamodb.Table(
             self,
-            "DishesTable",
-            table_name=f"MealPlanner-Dishes-{stage}",
-            partition_key=dynamodb.Attribute(name="dish_id", type=dynamodb.AttributeType.STRING),
-            **table_props,
+            "MealPlannerTable",
+            table_name=f"MealPlanner-{stage}",
+            partition_key=dynamodb.Attribute(name="PK", type=dynamodb.AttributeType.STRING),
+            sort_key=dynamodb.Attribute(name="SK", type=dynamodb.AttributeType.STRING),
+            billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
+            removal_policy=removal_policy,
         )
 
-        self.members_table = dynamodb.Table(
-            self,
-            "MembersTable",
-            table_name=f"MealPlanner-Members-{stage}",
-            partition_key=dynamodb.Attribute(name="member_id", type=dynamodb.AttributeType.STRING),
-            **table_props,
-        )
-
-        self.votes_table = dynamodb.Table(
-            self,
-            "VotesTable",
-            table_name=f"MealPlanner-Votes-{stage}",
-            partition_key=dynamodb.Attribute(name="vote_id", type=dynamodb.AttributeType.STRING),
-            **table_props,
-        )
-
-        self.weekly_menus_table = dynamodb.Table(
-            self,
-            "WeeklyMenusTable",
-            table_name=f"MealPlanner-WeeklyMenus-{stage}",
-            partition_key=dynamodb.Attribute(name="week_id", type=dynamodb.AttributeType.STRING),
-            **table_props,
+        self.table.add_global_secondary_index(
+            index_name="GSI1",
+            partition_key=dynamodb.Attribute(name="GSI1PK", type=dynamodb.AttributeType.STRING),
+            sort_key=dynamodb.Attribute(name="GSI1SK", type=dynamodb.AttributeType.STRING),
+            projection_type=dynamodb.ProjectionType.ALL,
         )
