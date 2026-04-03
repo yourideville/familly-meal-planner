@@ -57,8 +57,14 @@ class MealPlannerDataManager:
                 name = row["name"].strip()
                 if not name:
                     continue
-                self.add_member(name)
-                print(f"Added member: {name}")
+                try:
+                    self.add_member(name)
+                    print(f"Added member: {name}")
+                except httpx.HTTPStatusError as exc:
+                    if exc.response.status_code == 400:
+                        print(f"Skipped member (already exists?): {name}")
+                    else:
+                        raise
 
     def upload_dishes(self, csv_path: Path) -> None:
         with csv_path.open(newline="", encoding="utf-8") as csvfile:
@@ -73,8 +79,14 @@ class MealPlannerDataManager:
                     tags = [tag.strip() for tag in row["tags"].split(";") if tag.strip()]
                 if not name or not category:
                     continue
-                self.add_dish(name, category, tags)
-                print(f"Added dish: {name} ({category})")
+                try:
+                    self.add_dish(name, category, tags)
+                    print(f"Added dish: {name} ({category})")
+                except httpx.HTTPStatusError as exc:
+                    if exc.response.status_code in (400, 409):
+                        print(f"Skipped dish (already exists?): {name}")
+                    else:
+                        raise
 
     def cleanup(self) -> None:
         dishes = self.list_dishes()
