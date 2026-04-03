@@ -34,11 +34,17 @@ class FrontendStack(Stack):
             price_class=cloudfront.PriceClass.PRICE_CLASS_100,
             error_responses=[
                 cloudfront.ErrorResponse(
+                    http_status=403,
+                    response_http_status=200,
+                    response_page_path="/index.html",
+                    ttl=Duration.minutes(30),
+                ),
+                cloudfront.ErrorResponse(
                     http_status=404,
                     response_http_status=200,
                     response_page_path="/index.html",
                     ttl=Duration.minutes(30),
-                )
+                ),
             ],
         )
 
