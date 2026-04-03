@@ -1,4 +1,6 @@
 import type {
+  AdminLoginPayload,
+  AdminSessionResponse,
   Dish,
   FamilyMember,
   Meal,
@@ -68,15 +70,6 @@ export function setVoteAvailability(slots: VoteSlot[]): Promise<VoteSlot[]> {
     method: "PUT",
     body: JSON.stringify(slots),
   });
-}
-
-interface AdminLoginPayload {
-  username: string;
-  password: string;
-}
-
-interface AdminSessionResponse {
-  authenticated: boolean;
 }
 
 export function getDishCategories(): Promise<DishCategory[]> {

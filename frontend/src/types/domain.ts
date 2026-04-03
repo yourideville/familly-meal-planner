@@ -57,3 +57,14 @@ export interface WeeklyMenuResponse {
   finalized?: boolean;
   shortlists?: Partial<Record<Weekday, Partial<Record<Meal, string[]>>>>;
 }
+
+export type AvailabilityMap = Record<Weekday, Record<Meal, boolean>>;
+
+export interface AdminLoginPayload {
+  username: string;
+  password: string;
+}
+
+export interface AdminSessionResponse {
+  authenticated: boolean;
+}

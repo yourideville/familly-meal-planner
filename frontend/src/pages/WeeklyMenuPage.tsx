@@ -1,6 +1,7 @@
 import type { WeeklyMenuResponse } from "../types/domain";
-import { WEEK_DAY_LABELS_FR } from "../constants/weekdays";
+import { WEEK_DAY_LABELS_FR, WEEK_DAYS } from "../constants/weekdays";
 import { MEAL_LABELS_FR, MEALS } from "../constants/meals";
+import type { Weekday } from "../types/domain";
 
 interface WeeklyMenuPageProps {
   menu: WeeklyMenuResponse | null;
@@ -39,9 +40,9 @@ export function WeeklyMenuPage({ menu, onRefresh }: WeeklyMenuPageProps) {
           </tr>
         </thead>
         <tbody>
-          {Object.keys(itemsByDay ?? {}).map((day) => (
+          {WEEK_DAYS.map((day) => (
             <tr key={day}>
-              <td>{WEEK_DAY_LABELS_FR[day as keyof typeof WEEK_DAY_LABELS_FR]}</td>
+              <td>{WEEK_DAY_LABELS_FR[day]}</td>
               {MEALS.map((meal) => (
                 <td key={meal}>{itemsByDay?.[day]?.[meal] ?? "Pas encore de gagnant"}</td>
               ))}

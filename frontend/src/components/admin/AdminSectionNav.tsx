@@ -1,5 +1,3 @@
-import type { MouseEvent } from "react";
-
 type AdminSectionNavItem<SectionId extends string> = {
   id: SectionId;
   label: string;
@@ -18,12 +16,10 @@ export function AdminSectionNav<SectionId extends string>({ sections, selectedSe
         <button
           key={section.id}
           type="button"
+          role="tab"
           className={selectedSection === section.id ? "active" : ""}
-          aria-pressed={selectedSection === section.id}
-          onClick={(event: MouseEvent<HTMLButtonElement>) => {
-            event.preventDefault();
-            onSelect(section.id);
-          }}
+          aria-selected={selectedSection === section.id}
+          onClick={() => onSelect(section.id)}
         >
           {section.label}
         </button>

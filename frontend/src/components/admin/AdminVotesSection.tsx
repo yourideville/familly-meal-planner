@@ -1,4 +1,3 @@
-import type { Dispatch, SetStateAction } from "react";
 import { AdminButton } from "./AdminButton";
 import { AdminSection } from "./AdminSection";
 import { MEAL_LABELS_FR, MEALS } from "../../constants/meals";
@@ -11,8 +10,8 @@ interface AdminVotesSectionProps {
   selectedDay: Weekday;
   selectedMeal: Meal;
   selectedShortlist: string[];
-  onSelectDay: Dispatch<SetStateAction<Weekday>>;
-  onSelectMeal: Dispatch<SetStateAction<Meal>>;
+  onSelectDay: (value: Weekday) => void;
+  onSelectMeal: (value: Meal) => void;
   onToggleAvailability: (day: Weekday, meal: Meal) => void;
   onToggleShortlist: (dishId: string, selected: boolean) => void;
   onSetShortlist: () => void;

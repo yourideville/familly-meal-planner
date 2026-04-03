@@ -1,12 +1,6 @@
 import { useMemo, useState } from "react";
 import type { Dish, DishCategory } from "../types/domain";
-
-const categoryLabels: Record<DishCategory, string> = {
-  lunch: "Déjeuner",
-  dinner: "Dîner",
-  weekends_lunch: "Weekend déjeuner",
-  saturday_dinner: "Samedi dîner",
-};
+import { CATEGORY_LABELS_FR } from "../constants/categories";
 
 interface CatalogPageProps {
   dishes: Dish[];
@@ -30,7 +24,7 @@ export function CatalogPage({ dishes }: CatalogPageProps) {
         <button type="button" onClick={() => setCategoryFilter("all")} className={categoryFilter === "all" ? "active" : ""}>
           Tous
         </button>
-        {Object.entries(categoryLabels).map(([key, label]) => (
+        {Object.entries(CATEGORY_LABELS_FR).map(([key, label]) => (
           <button
             key={key}
             type="button"
@@ -49,7 +43,7 @@ export function CatalogPage({ dishes }: CatalogPageProps) {
             <li key={dish.id} className="dish-item">
               <div>
                 <strong>{dish.name}</strong>
-                <span className="category-label">{categoryLabels[dish.category]}</span>
+                <span className="category-label">{CATEGORY_LABELS_FR[dish.category]}</span>
               </div>
               {dish.tags.length > 0 && (
                 <div className="tags">

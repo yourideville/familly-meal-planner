@@ -1,4 +1,3 @@
-import type { Dispatch, SetStateAction } from "react";
 import { AdminButton } from "./AdminButton";
 import { AdminSection } from "./AdminSection";
 import { MEAL_LABELS_FR, MEALS } from "../../constants/meals";
@@ -10,9 +9,9 @@ interface AdminMenuSectionProps {
   selectedDay: Weekday;
   selectedMeal: Meal;
   selectedManualDish: string;
-  onSelectDay: Dispatch<SetStateAction<Weekday>>;
-  onSelectMeal: Dispatch<SetStateAction<Meal>>;
-  onSelectManualDish: Dispatch<SetStateAction<string>>;
+  onSelectDay: (value: Weekday) => void;
+  onSelectMeal: (value: Meal) => void;
+  onSelectManualDish: (value: string) => void;
   onSetManualMenu: () => void;
   onValidateMenu: () => void;
   onUnvalidateMenu: () => void;

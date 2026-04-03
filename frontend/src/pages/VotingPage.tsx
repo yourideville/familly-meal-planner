@@ -3,23 +3,12 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { createVote, getMembers, getVoteAvailability } from "../api/client";
 import { WEEK_DAY_LABELS_FR, WEEK_DAYS } from "../constants/weekdays";
 import { MEAL_LABELS_FR, MEALS } from "../constants/meals";
-import type { Dish, DishCategory, Meal, VoteSlot, VotePayload, Weekday } from "../types/domain";
+import { INITIAL_AVAILABILITY } from "../constants/availability";
+import type { Dish, DishCategory, Meal, VoteSlot, VotePayload, Weekday, AvailabilityMap } from "../types/domain";
 
 interface VotingPageProps {
   dishes: Dish[];
 }
-
-type AvailabilityMap = Record<Weekday, Record<Meal, boolean>>;
-
-const initialAvailability: AvailabilityMap = {
-  monday: { lunch: true, dinner: true },
-  tuesday: { lunch: true, dinner: true },
-  wednesday: { lunch: true, dinner: true },
-  thursday: { lunch: true, dinner: true },
-  friday: { lunch: true, dinner: true },
-  saturday: { lunch: true, dinner: true },
-  sunday: { lunch: true, dinner: true },
-};
 
 const getCategoryForSlot = (day: Weekday, meal: Meal): DishCategory => {
   if (meal === "lunch") {
@@ -37,7 +26,7 @@ export function VotingPage({ dishes }: VotingPageProps) {
   const [meal, setMeal] = useState<Meal>("lunch");
   const [members, setMembers] = useState<string[]>([]);
   const [selectedMember, setSelectedMember] = useState("");
-  const [availability, setAvailability] = useState<AvailabilityMap>(initialAvailability);
+  const [availability, setAvailability] = useState<AvailabilityMap>({ ...INITIAL_AVAILABILITY });
   const [message, setMessage] = useState("");
 
   useEffect(() => {
@@ -61,13 +50,13 @@ export function VotingPage({ dishes }: VotingPageProps) {
       try {
         const slots: VoteSlot[] = await getVoteAvailability();
         const updated: AvailabilityMap = {
-          monday: { lunch: true, dinner: true },
-          tuesday: { lunch: true, dinner: true },
-          wednesday: { lunch: true, dinner: true },
-          thursday: { lunch: true, dinner: true },
-          friday: { lunch: true, dinner: true },
-          saturday: { lunch: true, dinner: true },
-          sunday: { lunch: true, dinner: true },
+          monday: { ...INITIAL_AVAILABILITY.monday },
+          tuesday: { ...INITIAL_AVAILABILITY.tuesday },
+          wednesday: { ...INITIAL_AVAILABILITY.wednesday },
+          thursday: { ...INITIAL_AVAILABILITY.thursday },
+          friday: { ...INITIAL_AVAILABILITY.friday },
+          saturday: { ...INITIAL_AVAILABILITY.saturday },
+          sunday: { ...INITIAL_AVAILABILITY.sunday },
         };
         slots.forEach((slot) => {
           updated[slot.day][slot.meal] = slot.available;

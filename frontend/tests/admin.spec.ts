@@ -1,14 +1,14 @@
 import { test, expect } from '@playwright/test';
 
-test.describe('Admin Authentication', () => {
-  async function signIn(page) {
-    await page.goto('/admin');
-    await page.locator('input[name="username"]').fill('admin');
-    await page.locator('input[name="password"]').fill('password');
-    await page.locator('button[type="submit"]').click();
-    await expect(page.locator('h2')).toContainText('Administration');
-  }
+async function signIn(page) {
+  await page.goto('/admin');
+  await page.locator('input[name="username"]').fill('admin');
+  await page.locator('input[name="password"]').fill('password');
+  await page.locator('button[type="submit"]').click();
+  await expect(page.locator('h2')).toContainText('Administration');
+}
 
+test.describe('Admin Authentication', () => {
   test('should redirect anonymous users to login', async ({ page }) => {
     await page.goto('/admin');
     await expect(page.locator('h2')).toContainText('Connexion administrateur');
@@ -29,14 +29,6 @@ test.describe('Admin Authentication', () => {
 });
 
 test.describe('Admin Page', () => {
-  async function signIn(page) {
-    await page.goto('/admin');
-    await page.locator('input[name="username"]').fill('admin');
-    await page.locator('input[name="password"]').fill('password');
-    await page.locator('button[type="submit"]').click();
-    await expect(page.locator('h2')).toContainText('Administration');
-  }
-
   test.beforeEach(async ({ page }) => {
     await signIn(page);
   });
@@ -48,8 +40,9 @@ test.describe('Admin Page', () => {
   test('should add a new dish', async ({ page }) => {
     const dishName = 'Test Dish ' + Date.now();
 
-    await page.locator('input[placeholder*="Nom du plat"]').fill(dishName);
-    await page.locator('input[placeholder*="Tags"]').fill('test, integration');
+    await page.getByRole('tab', { name: 'Catalogue' }).click();
+    await page.getByLabel('Nom du plat').fill(dishName);
+    await page.getByLabel('Tags (virgule séparés)').fill('test, integration');
     await page.locator('button[type="submit"]').click();
 
     await expect(page.locator('.dish-list')).toContainText(dishName);
@@ -57,8 +50,10 @@ test.describe('Admin Page', () => {
 
   test('should delete a dish', async ({ page }) => {
     const dishName = 'Dish to Delete ' + Date.now();
-    await page.locator('input[placeholder*="Nom du plat"]').fill(dishName);
-    await page.locator('input[placeholder*="Tags"]').fill('delete');
+
+    await page.getByRole('tab', { name: 'Catalogue' }).click();
+    await page.getByLabel('Nom du plat').fill(dishName);
+    await page.getByLabel('Tags (virgule séparés)').fill('delete');
     await page.locator('button[type="submit"]').click();
 
     await expect(page.locator('.dish-list')).toContainText(dishName);
@@ -67,7 +62,7 @@ test.describe('Admin Page', () => {
   });
 
   test('should set shortlist for a day', async ({ page }) => {
-    await page.locator('select').selectOption('monday');
+    await page.getByRole('tab', { name: 'Votes' }).click();
     const checkboxes = page.locator('.shortlist-grid input[type="checkbox"]');
     const count = await checkboxes.count();
     if (count > 0) {
@@ -78,7 +73,8 @@ test.describe('Admin Page', () => {
   });
 
   test('should validate weekly menu', async ({ page }) => {
-    await page.locator('button').filter({ hasText: 'Valider menu hebdomadaire' }).click();
+    await page.getByRole('tab', { name: 'Menu' }).click();
+    await page.locator('button').filter({ hasText: 'Valider le menu' }).click();
     await expect(page.locator('.info')).toContainText('Menu final validé');
   });
 });

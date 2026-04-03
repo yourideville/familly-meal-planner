@@ -1,6 +1,7 @@
 import type { FormEvent } from "react";
 import { AdminButton } from "./AdminButton";
 import { AdminSection } from "./AdminSection";
+import { CATEGORY_LABELS_FR } from "../../constants/categories";
 import type { Dish, DishCategory } from "../../types/domain";
 
 interface AdminCatalogSectionProps {
@@ -14,21 +15,6 @@ interface AdminCatalogSectionProps {
   onAddDish: (event: FormEvent<HTMLFormElement>) => void;
   onDeleteDish: (id: string) => void;
 }
-
-const categoryLabel = (category: DishCategory) => {
-  switch (category) {
-    case "lunch":
-      return "Déjeuner";
-    case "dinner":
-      return "Dîner";
-    case "weekends_lunch":
-      return "Weekend déjeuner";
-    case "saturday_dinner":
-      return "Samedi dîner";
-    default:
-      return category;
-  }
-};
 
 export function AdminCatalogSection({
   dishes,
@@ -73,7 +59,7 @@ export function AdminCatalogSection({
               <li key={dish.id} className="dish-item">
                 <div>
                   <strong>{dish.name}</strong>
-                  <span className="category-label">{categoryLabel(dish.category)}</span>
+                  <span className="category-label">{CATEGORY_LABELS_FR[dish.category]}</span>
                   {dish.tags.length > 0 && <p className="tag-row">{dish.tags.join(", ")}</p>}
                 </div>
                 <AdminButton onClick={() => onDeleteDish(dish.id)} type="button" danger>

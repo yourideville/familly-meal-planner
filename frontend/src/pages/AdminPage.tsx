@@ -6,7 +6,6 @@ import {
   deleteMember,
   getMembers,
   getVoteAvailability,
-  getVotes,
   setMenuItem,
   setShortlist,
   setVoteAvailability,
@@ -25,11 +24,12 @@ import type {
   Dish,
   DishCategory,
   Meal,
-  Vote,
   VoteSlot,
   WeeklyMenuResponse,
   Weekday,
+  AvailabilityMap,
 } from "../types/domain";
+import { INITIAL_AVAILABILITY } from "../constants/availability";
 
 interface AdminPageProps {
   dishes: Dish[];
@@ -38,33 +38,7 @@ interface AdminPageProps {
   menu: WeeklyMenuResponse | null;
 }
 
-type AvailabilityMap = Record<Weekday, Record<Meal, boolean>>;
 type AdminTab = "members" | "catalog" | "votes" | "menu";
-
-const initialAvailability: AvailabilityMap = {
-  monday: { lunch: true, dinner: true },
-  tuesday: { lunch: true, dinner: true },
-  wednesday: { lunch: true, dinner: true },
-  thursday: { lunch: true, dinner: true },
-  friday: { lunch: true, dinner: true },
-  saturday: { lunch: true, dinner: true },
-  sunday: { lunch: true, dinner: true },
-};
-
-const categoryLabel = (category: DishCategory) => {
-  switch (category) {
-    case "lunch":
-      return "Déjeuner";
-    case "dinner":
-      return "Dîner";
-    case "weekends_lunch":
-      return "Weekend déjeuner";
-    case "saturday_dinner":
-      return "Samedi dîner";
-    default:
-      return category;
-  }
-};
 
 const sectionLabels: Record<AdminTab, string> = {
   members: "Membres",
@@ -80,14 +54,13 @@ export function AdminPage({ dishes, refreshDishes, refreshMenu, menu }: AdminPag
   const [members, setMembers] = useState<string[]>([]);
   const [memberEdits, setMemberEdits] = useState<Record<string, string>>({});
   const [newMemberName, setNewMemberName] = useState("");
-  const [availability, setAvailability] = useState<AvailabilityMap>(initialAvailability);
+  const [availability, setAvailability] = useState<AvailabilityMap>({ ...INITIAL_AVAILABILITY });
   const [selectedDay, setSelectedDay] = useState<Weekday>("monday");
   const [selectedMeal, setSelectedMeal] = useState<Meal>("lunch");
   const [selectedShortlist, setSelectedShortlist] = useState<string[]>([]);
   const [selectedManualDish, setSelectedManualDish] = useState("");
   const [message, setMessage] = useState("");
   const [selectedSection, setSelectedSection] = useState<AdminTab>("members");
-  const [votes, setVotes] = useState<Vote[]>([]);
 
   useEffect(() => {
     void loadMembers();
@@ -100,40 +73,10 @@ export function AdminPage({ dishes, refreshDishes, refreshMenu, menu }: AdminPag
     setSelectedManualDish(slot?.dish?.id ?? "");
   }, [menu, selectedDay, selectedMeal]);
 
-  useEffect(() => {
-    async function loadVotes() {
-      try {
-        setVotes(await getVotes());
-      } catch {
-        // Ignore errors for now.
-      }
-    }
-
-    void loadVotes();
-  }, []);
-
   const shortlist = useMemo(
     () => menu?.shortlists?.[selectedDay]?.[selectedMeal] ?? [],
     [menu, selectedDay, selectedMeal],
   );
-
-  const votesBySlot = useMemo(() => {
-    const result: Record<Weekday, Record<Meal, Vote[]>> = {
-      monday: { lunch: [], dinner: [] },
-      tuesday: { lunch: [], dinner: [] },
-      wednesday: { lunch: [], dinner: [] },
-      thursday: { lunch: [], dinner: [] },
-      friday: { lunch: [], dinner: [] },
-      saturday: { lunch: [], dinner: [] },
-      sunday: { lunch: [], dinner: [] },
-    };
-
-    votes.forEach((vote) => {
-      result[vote.day][vote.meal].push(vote);
-    });
-
-    return result;
-  }, [votes]);
 
   async function loadMembers() {
     try {
@@ -147,13 +90,13 @@ export function AdminPage({ dishes, refreshDishes, refreshMenu, menu }: AdminPag
     try {
       const slots: VoteSlot[] = await getVoteAvailability();
       const updatedAvailability: AvailabilityMap = {
-        monday: { lunch: true, dinner: true },
-        tuesday: { lunch: true, dinner: true },
-        wednesday: { lunch: true, dinner: true },
-        thursday: { lunch: true, dinner: true },
-        friday: { lunch: true, dinner: true },
-        saturday: { lunch: true, dinner: true },
-        sunday: { lunch: true, dinner: true },
+        monday: { ...INITIAL_AVAILABILITY.monday },
+        tuesday: { ...INITIAL_AVAILABILITY.tuesday },
+        wednesday: { ...INITIAL_AVAILABILITY.wednesday },
+        thursday: { ...INITIAL_AVAILABILITY.thursday },
+        friday: { ...INITIAL_AVAILABILITY.friday },
+        saturday: { ...INITIAL_AVAILABILITY.saturday },
+        sunday: { ...INITIAL_AVAILABILITY.sunday },
       };
       slots.forEach((slot) => {
         updatedAvailability[slot.day][slot.meal] = slot.available;
