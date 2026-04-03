@@ -1,20 +1,21 @@
+import json
 import logging
 import os
 from collections import Counter
 from uuid import uuid4
 
-import boto3
-from boto3.dynamodb.conditions import Attr
-
 from app.schemas.common import (
     CreateDishRequest,
     CreateVoteRequest,
+    DishCategory,
     Dish,
     FamilyMember,
     Meal,
     MenuItem,
+    SetShortlistRequest,
     Vote,
     VoteSlot,
+    Weekday,
     WeeklyMenuResponse,
 )
 
@@ -31,6 +32,9 @@ WEEK_DAYS = [
 ]
 MEALS: list[Meal] = ["lunch", "dinner"]
 
+# ---------------------------------------------------------------------------
+# In-memory state (used for both inmemory and dynamodb modes)
+# ---------------------------------------------------------------------------
 _dishes: dict[str, Dish] = {}
 _votes: list[Vote] = []
 _members: list[str] = []
@@ -40,35 +44,79 @@ _final_weekly_menu: WeeklyMenuResponse | None = None
 _shortlists: dict[str, dict[Meal, set[str]]] = {}
 _manual_menu: dict[str, dict[Meal, str | None]] = {}
 
+# ---------------------------------------------------------------------------
+# DynamoDB single-table setup
+# ---------------------------------------------------------------------------
+# Key schema:
+#   Dishes:   PK=DISH#<id>            SK=METADATA         GSI1PK=DISHES  GSI1SK=DISH#<id>
+#   Members:  PK=MEMBER#<name>        SK=METADATA         GSI1PK=MEMBERS GSI1SK=MEMBER#<name>
+#   Votes:    PK=SLOT#<day>#<meal>    SK=USER#<user_name>  GSI1PK=USER#<user_name> GSI1SK=SLOT#<day>#<meal>
+#   Config:   PK=CONFIG               SK=AVAIL#<day>#<meal> | SHORTLIST#<day>#<meal> | MENU#<day>#<meal> | FINALIZED
+# ---------------------------------------------------------------------------
+
 BACKEND_PERSISTENCE_MODE = os.getenv("BACKEND_PERSISTENCE_MODE", "inmemory").lower()
 _USE_DYNAMODB = BACKEND_PERSISTENCE_MODE == "dynamodb"
 
-_dishes_table = None
-_members_table = None
-_votes_table = None
-_vote_ids: dict[tuple[str, str, str], str] = {}
+_table = None
 _persistence_loaded = False
 
 if _USE_DYNAMODB:
+    import boto3
+
     logger.info("Backend persistence mode set to dynamodb")
     try:
         dynamodb_resource = boto3.resource("dynamodb")
-        _dishes_table = dynamodb_resource.Table(os.environ["DISHES_TABLE_NAME"])
-        _members_table = dynamodb_resource.Table(os.environ["MEMBERS_TABLE_NAME"])
-        _votes_table = dynamodb_resource.Table(os.environ["VOTES_TABLE_NAME"])
+        _table = dynamodb_resource.Table(os.environ["TABLE_NAME"])
     except KeyError as exc:
-        raise RuntimeError("DynamoDB table names must be configured in environment variables") from exc
+        raise RuntimeError("TABLE_NAME must be configured in environment variables") from exc
 
 
-def _scan_table(table):
-    items = []
-    response = table.scan()
+def _query_pk(pk: str) -> list[dict]:
+    """Query all items sharing a partition key."""
+    items: list[dict] = []
+    response = _table.query(KeyConditionExpression="PK = :pk", ExpressionAttributeValues={":pk": pk})
     items.extend(response.get("Items", []))
     while response.get("LastEvaluatedKey"):
-        response = table.scan(ExclusiveStartKey=response["LastEvaluatedKey"])
+        response = _table.query(
+            KeyConditionExpression="PK = :pk",
+            ExpressionAttributeValues={":pk": pk},
+            ExclusiveStartKey=response["LastEvaluatedKey"],
+        )
         items.extend(response.get("Items", []))
     return items
 
+
+def _query_gsi1(gsi1pk: str) -> list[dict]:
+    """Query all items sharing a GSI1 partition key."""
+    items: list[dict] = []
+    response = _table.query(
+        IndexName="GSI1",
+        KeyConditionExpression="GSI1PK = :pk",
+        ExpressionAttributeValues={":pk": gsi1pk},
+    )
+    items.extend(response.get("Items", []))
+    while response.get("LastEvaluatedKey"):
+        response = _table.query(
+            IndexName="GSI1",
+            KeyConditionExpression="GSI1PK = :pk",
+            ExpressionAttributeValues={":pk": gsi1pk},
+            ExclusiveStartKey=response["LastEvaluatedKey"],
+        )
+        items.extend(response.get("Items", []))
+    return items
+
+
+def _put_item(item: dict) -> None:
+    _table.put_item(Item=item)
+
+
+def _delete_item(pk: str, sk: str) -> None:
+    _table.delete_item(Key={"PK": pk, "SK": sk})
+
+
+# ---------------------------------------------------------------------------
+# Load from DynamoDB
+# ---------------------------------------------------------------------------
 
 def _ensure_store_loaded() -> None:
     global _persistence_loaded
@@ -79,13 +127,14 @@ def _ensure_store_loaded() -> None:
     _load_dishes_from_db()
     _load_members_from_db()
     _load_votes_from_db()
+    _load_config_from_db()
     _persistence_loaded = True
 
 
 def _load_dishes_from_db() -> None:
-    for item in _scan_table(_dishes_table):
+    for item in _query_gsi1("DISHES"):
         dish = Dish(
-            id=item["dish_id"],
+            id=item["PK"].removeprefix("DISH#"),
             name=item["name"],
             tags=item.get("tags", []),
             category=item["category"],
@@ -94,107 +143,174 @@ def _load_dishes_from_db() -> None:
 
 
 def _load_members_from_db() -> None:
-    for item in _scan_table(_members_table):
-        _members.append(item["member_id"])
+    for item in _query_gsi1("MEMBERS"):
+        _members.append(item["PK"].removeprefix("MEMBER#"))
 
 
 def _load_votes_from_db() -> None:
-    for item in _scan_table(_votes_table):
-        vote = Vote(
-            user_name=item["user_name"],
-            dish_id=item["dish_id"],
-            day=item["day"],
-            meal=item["meal"],
-        )
-        _votes.append(vote)
-        _vote_ids[(vote.user_name, vote.day, vote.meal)] = item["vote_id"]
+    # Query by GSI1PK would require knowing all users. Instead, query each slot.
+    seen: set[tuple[str, str, str]] = set()
+    for day in WEEK_DAYS:
+        for meal in MEALS:
+            for item in _query_pk(f"SLOT#{day}#{meal}"):
+                user_name = item["SK"].removeprefix("USER#")
+                key = (user_name, day, meal)
+                if key not in seen:
+                    seen.add(key)
+                    vote = Vote(
+                        user_name=user_name,
+                        dish_id=item["dish_id"],
+                        day=day,
+                        meal=meal,
+                    )
+                    _votes.append(vote)
 
+
+def _load_config_from_db() -> None:
+    global _finalized
+    for item in _query_pk("CONFIG"):
+        sk: str = item["SK"]
+        if sk.startswith("AVAIL#"):
+            parts = sk.removeprefix("AVAIL#").split("#")
+            day, meal = parts[0], parts[1]
+            _vote_availability[day][meal] = item["available"]
+        elif sk.startswith("SHORTLIST#"):
+            parts = sk.removeprefix("SHORTLIST#").split("#")
+            day, meal = parts[0], parts[1]
+            _shortlists[day][meal] = set(item.get("dish_ids", []))
+        elif sk.startswith("MENU#"):
+            parts = sk.removeprefix("MENU#").split("#")
+            day, meal = parts[0], parts[1]
+            _manual_menu[day][meal] = item.get("dish_id")
+        elif sk == "FINALIZED":
+            _finalized = item.get("finalized", False)
+
+
+# ---------------------------------------------------------------------------
+# Persist helpers
+# ---------------------------------------------------------------------------
 
 def _persist_dish(dish: Dish) -> None:
     if not _USE_DYNAMODB:
         return
-    _dishes_table.put_item(
-        Item={
-            "dish_id": dish.id,
-            "name": dish.name,
-            "tags": dish.tags,
-            "category": dish.category,
-        }
-    )
+    _put_item({
+        "PK": f"DISH#{dish.id}",
+        "SK": "METADATA",
+        "GSI1PK": "DISHES",
+        "GSI1SK": f"DISH#{dish.id}",
+        "name": dish.name,
+        "tags": dish.tags,
+        "category": dish.category,
+    })
 
 
 def _delete_dish_from_db(dish_id: str) -> None:
     if not _USE_DYNAMODB:
         return
-    _dishes_table.delete_item(Key={"dish_id": dish_id})
+    _delete_item(f"DISH#{dish_id}", "METADATA")
 
 
 def _persist_member(name: str) -> None:
     if not _USE_DYNAMODB:
         return
-    _members_table.put_item(Item={"member_id": name})
+    _put_item({
+        "PK": f"MEMBER#{name}",
+        "SK": "METADATA",
+        "GSI1PK": "MEMBERS",
+        "GSI1SK": f"MEMBER#{name}",
+    })
 
 
 def _delete_member_from_db(name: str) -> None:
     if not _USE_DYNAMODB:
         return
-    _members_table.delete_item(Key={"member_id": name})
+    _delete_item(f"MEMBER#{name}", "METADATA")
 
 
-def _persist_vote(vote: Vote, vote_id: str | None = None) -> str:
-    if not _USE_DYNAMODB:
-        return ""
-    if vote_id is None:
-        vote_id = _vote_ids.get((vote.user_name, vote.day, vote.meal), str(uuid4()))
-    _votes_table.put_item(
-        Item={
-            "vote_id": vote_id,
-            "user_name": vote.user_name,
-            "dish_id": vote.dish_id,
-            "day": vote.day,
-            "meal": vote.meal,
-        }
-    )
-    _vote_ids[(vote.user_name, vote.day, vote.meal)] = vote_id
-    return vote_id
-
-
-def _delete_vote_from_db(vote_id: str) -> None:
+def _persist_vote(vote: Vote) -> None:
     if not _USE_DYNAMODB:
         return
-    _votes_table.delete_item(Key={"vote_id": vote_id})
+    _put_item({
+        "PK": f"SLOT#{vote.day}#{vote.meal}",
+        "SK": f"USER#{vote.user_name}",
+        "GSI1PK": f"USER#{vote.user_name}",
+        "GSI1SK": f"SLOT#{vote.day}#{vote.meal}",
+        "dish_id": vote.dish_id,
+    })
+
+
+def _delete_vote_from_db(user_name: str, day: str, meal: str) -> None:
+    if not _USE_DYNAMODB:
+        return
+    _delete_item(f"SLOT#{day}#{meal}", f"USER#{user_name}")
 
 
 def _delete_votes_for_member(name: str) -> None:
     if not _USE_DYNAMODB:
         return
-    votes_to_remove = [
-        (vote, _vote_ids[(vote.user_name, vote.day, vote.meal)])
-        for vote in _votes
-        if vote.user_name == name and (vote.user_name, vote.day, vote.meal) in _vote_ids
-    ]
-    for vote, vote_id in votes_to_remove:
-        _delete_vote_from_db(vote_id)
-        _vote_ids.pop((vote.user_name, vote.day, vote.meal), None)
+    for vote in _votes:
+        if vote.user_name == name:
+            _delete_vote_from_db(name, vote.day, vote.meal)
 
 
 def _update_votes_member_name(current_name: str, new_name: str) -> None:
     for vote in _votes:
         if vote.user_name == current_name:
-            vote_id = _vote_ids.pop((vote.user_name, vote.day, vote.meal), None)
+            if _USE_DYNAMODB:
+                _delete_vote_from_db(current_name, vote.day, vote.meal)
             vote.user_name = new_name
-            if _USE_DYNAMODB and vote_id is not None:
-                _persist_vote(vote, vote_id)
-                _vote_ids[(new_name, vote.day, vote.meal)] = vote_id
+            if _USE_DYNAMODB:
+                _persist_vote(vote)
+
+
+def _persist_config_availability(day: str, meal: str, available: bool) -> None:
+    if not _USE_DYNAMODB:
+        return
+    _put_item({
+        "PK": "CONFIG",
+        "SK": f"AVAIL#{day}#{meal}",
+        "available": available,
+    })
+
+
+def _persist_config_shortlist(day: str, meal: str, dish_ids: list[str]) -> None:
+    if not _USE_DYNAMODB:
+        return
+    _put_item({
+        "PK": "CONFIG",
+        "SK": f"SHORTLIST#{day}#{meal}",
+        "dish_ids": dish_ids,
+    })
+
+
+def _persist_config_menu(day: str, meal: str, dish_id: str | None) -> None:
+    if not _USE_DYNAMODB:
+        return
+    item: dict = {
+        "PK": "CONFIG",
+        "SK": f"MENU#{day}#{meal}",
+    }
+    if dish_id is not None:
+        item["dish_id"] = dish_id
+    _put_item(item)
+
+
+def _persist_config_finalized(finalized: bool) -> None:
+    if not _USE_DYNAMODB:
+        return
+    _put_item({
+        "PK": "CONFIG",
+        "SK": "FINALIZED",
+        "finalized": finalized,
+    })
 
 
 def reset_store() -> None:
-    global _dishes, _votes, _members, _vote_availability, _finalized, _final_weekly_menu, _shortlists, _manual_menu, _vote_ids, _persistence_loaded
+    global _dishes, _votes, _members, _vote_availability, _finalized, _final_weekly_menu, _shortlists, _manual_menu, _persistence_loaded
 
     _dishes.clear()
     _votes.clear()
     _members.clear()
-    _vote_ids.clear()
     _finalized = False
     _final_weekly_menu = None
     _vote_availability = {
@@ -312,10 +428,11 @@ def set_vote_availability(slots: list[VoteSlot]) -> list[VoteSlot]:
         if slot.day not in WEEK_DAYS or slot.meal not in MEALS:
             raise ValueError("Invalid vote slot")
         _vote_availability[slot.day][slot.meal] = slot.available
+        _persist_config_availability(slot.day, slot.meal, slot.available)
     return list_vote_availability()
 
 
-def list_dish_categories() -> list[str]:
+def list_dish_categories() -> list[DishCategory]:
     return ["lunch", "dinner", "weekends_lunch", "saturday_dinner"]
 
 
@@ -345,7 +462,7 @@ def add_vote(payload: CreateVoteRequest) -> Vote:
     return vote
 
 
-def set_shortlist(day: str, meal: Meal, dish_ids: list[str]) -> None:
+def set_shortlist(day: Weekday, meal: Meal, dish_ids: list[str]) -> None:
     _ensure_store_loaded()
     if _finalized:
         raise ValueError("Le menu est validé et ne peut plus être modifié")
@@ -357,20 +474,18 @@ def set_shortlist(day: str, meal: Meal, dish_ids: list[str]) -> None:
             raise KeyError(f"Dish not found: {dish_id}")
 
     _shortlists[day][meal] = set(dish_ids)
+    _persist_config_shortlist(day, meal, dish_ids)
 
 
-def set_shortlists(slots: list[dict]) -> None:
+def set_shortlists(slots: list[SetShortlistRequest]) -> None:
     _ensure_store_loaded()
     if _finalized:
         raise ValueError("Le menu est validé et ne peut plus être modifié")
     for slot in slots:
-        day = slot["day"]
-        meal = slot["meal"]
-        dish_ids = slot["dish_ids"]
-        set_shortlist(day, meal, dish_ids)
+        set_shortlist(slot.day, slot.meal, slot.dish_ids)
 
 
-def set_menu_item(day: str, meal: Meal, dish_id: str | None) -> WeeklyMenuResponse:
+def set_menu_item(day: Weekday, meal: Meal, dish_id: str | None) -> WeeklyMenuResponse:
     _ensure_store_loaded()
     if _finalized:
         raise ValueError("Le menu est validé et ne peut plus être modifié")
@@ -379,6 +494,7 @@ def set_menu_item(day: str, meal: Meal, dish_id: str | None) -> WeeklyMenuRespon
     if dish_id is not None and dish_id not in _dishes:
         raise KeyError("Dish not found")
     _manual_menu[day][meal] = dish_id
+    _persist_config_menu(day, meal, dish_id)
     return generate_weekly_menu()
 
 
@@ -396,6 +512,7 @@ def validate_menu() -> WeeklyMenuResponse:
         finalized=True,
         shortlists=_final_weekly_menu.shortlists,
     )
+    _persist_config_finalized(True)
     return _final_weekly_menu
 
 
@@ -405,10 +522,11 @@ def unvalidate_menu() -> WeeklyMenuResponse:
 
     _finalized = False
     _final_weekly_menu = None
+    _persist_config_finalized(False)
     return generate_weekly_menu()
 
 
-def get_slot_category(day: str, meal: Meal) -> str:
+def get_slot_category(day: Weekday, meal: Meal) -> DishCategory:
     if meal == "lunch":
         return "weekends_lunch" if day in ["saturday", "sunday"] else "lunch"
     if meal == "dinner":

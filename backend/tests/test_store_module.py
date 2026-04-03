@@ -53,21 +53,29 @@ def test_lambda_handler_importable() -> None:
     assert lambda_handler_module.handler is not None
 
 
-def test_dynamodb_store_loading_and_scan(monkeypatch) -> None:
+def test_dynamodb_store_loading_and_query(monkeypatch) -> None:
     from app.schemas.common import Dish, Vote
 
     class FakeTable:
-        def __init__(self, items=None):
-            self.items = items or []
-            self.scan_calls = 0
-            self.put_calls = []
-            self.delete_calls = []
+        def __init__(self):
+            self.items_by_pk: dict[str, list[dict]] = {}
+            self.items_by_gsi1pk: dict[str, list[dict]] = {}
+            self.put_calls: list[dict] = []
+            self.delete_calls: list[dict] = []
 
-        def scan(self, ExclusiveStartKey=None):
-            self.scan_calls += 1
-            if self.scan_calls == 1:
-                return {"Items": self.items}
-            return {"Items": []}
+        def add_item(self, item: dict) -> None:
+            pk = item["PK"]
+            self.items_by_pk.setdefault(pk, []).append(item)
+            if "GSI1PK" in item:
+                self.items_by_gsi1pk.setdefault(item["GSI1PK"], []).append(item)
+
+        def query(self, KeyConditionExpression=None, ExpressionAttributeValues=None,
+                  ExclusiveStartKey=None, IndexName=None):
+            if IndexName == "GSI1":
+                pk = ExpressionAttributeValues[":pk"]
+                return {"Items": self.items_by_gsi1pk.get(pk, [])}
+            pk = ExpressionAttributeValues[":pk"]
+            return {"Items": self.items_by_pk.get(pk, [])}
 
         def put_item(self, Item=None):
             self.put_calls.append(Item)
@@ -75,15 +83,25 @@ def test_dynamodb_store_loading_and_scan(monkeypatch) -> None:
         def delete_item(self, Key=None):
             self.delete_calls.append(Key)
 
-    dishes_table = FakeTable([{"dish_id": "d1", "name": "Test Dish", "tags": ["tag"], "category": "lunch"}])
-    members_table = FakeTable([{"member_id": "Alice"}])
-    votes_table = FakeTable([{"vote_id": "v1", "user_name": "Alice", "dish_id": "d1", "day": "monday", "meal": "lunch"}])
+    table = FakeTable()
+    table.add_item({
+        "PK": "DISH#d1", "SK": "METADATA",
+        "GSI1PK": "DISHES", "GSI1SK": "DISH#d1",
+        "name": "Test Dish", "tags": ["tag"], "category": "lunch",
+    })
+    table.add_item({
+        "PK": "MEMBER#Alice", "SK": "METADATA",
+        "GSI1PK": "MEMBERS", "GSI1SK": "MEMBER#Alice",
+    })
+    table.add_item({
+        "PK": "SLOT#monday#lunch", "SK": "USER#Alice",
+        "GSI1PK": "USER#Alice", "GSI1SK": "SLOT#monday#lunch",
+        "dish_id": "d1",
+    })
 
     monkeypatch.setattr(store, "_USE_DYNAMODB", True)
     monkeypatch.setattr(store, "_persistence_loaded", False)
-    monkeypatch.setattr(store, "_dishes_table", dishes_table)
-    monkeypatch.setattr(store, "_members_table", members_table)
-    monkeypatch.setattr(store, "_votes_table", votes_table)
+    monkeypatch.setattr(store, "_table", table)
 
     store.reset_store()
     store._ensure_store_loaded()
@@ -98,8 +116,12 @@ def test_dynamodb_store_persist_and_delete_helpers(monkeypatch) -> None:
 
     class FakeTable:
         def __init__(self):
-            self.put_calls = []
-            self.delete_calls = []
+            self.put_calls: list[dict] = []
+            self.delete_calls: list[dict] = []
+
+        def query(self, KeyConditionExpression=None, ExpressionAttributeValues=None,
+                  ExclusiveStartKey=None, IndexName=None):
+            return {"Items": []}
 
         def put_item(self, Item=None):
             self.put_calls.append(Item)
@@ -107,37 +129,86 @@ def test_dynamodb_store_persist_and_delete_helpers(monkeypatch) -> None:
         def delete_item(self, Key=None):
             self.delete_calls.append(Key)
 
-        def scan(self, ExclusiveStartKey=None):
-            return {"Items": []}
-
-    dishes_table = FakeTable()
-    members_table = FakeTable()
-    votes_table = FakeTable()
+    table = FakeTable()
 
     monkeypatch.setattr(store, "_USE_DYNAMODB", True)
-    monkeypatch.setattr(store, "_dishes_table", dishes_table)
-    monkeypatch.setattr(store, "_members_table", members_table)
-    monkeypatch.setattr(store, "_votes_table", votes_table)
+    monkeypatch.setattr(store, "_table", table)
     monkeypatch.setattr(store, "_persistence_loaded", False)
 
     dish = Dish(id="d1", name="Test Dish", tags=["tag"], category="lunch")
     store._persist_dish(dish)
-    assert dishes_table.put_calls[0]["dish_id"] == "d1"
+    assert table.put_calls[0]["PK"] == "DISH#d1"
+    assert table.put_calls[0]["SK"] == "METADATA"
+    assert table.put_calls[0]["name"] == "Test Dish"
 
     store._persist_member("Bob")
-    assert members_table.put_calls[0]["member_id"] == "Bob"
+    assert table.put_calls[1]["PK"] == "MEMBER#Bob"
+    assert table.put_calls[1]["SK"] == "METADATA"
 
     vote = Vote(user_name="Bob", dish_id="d1", day="tuesday", meal="dinner")
-    store._persist_vote(vote, "v2")
-    assert votes_table.put_calls[0]["vote_id"] == "v2"
-    assert vote.user_name == "Bob"
-    assert store._vote_ids[("Bob", "tuesday", "dinner")] == "v2"
+    store._persist_vote(vote)
+    assert table.put_calls[2]["PK"] == "SLOT#tuesday#dinner"
+    assert table.put_calls[2]["SK"] == "USER#Bob"
+    assert table.put_calls[2]["dish_id"] == "d1"
 
     store._delete_dish_from_db("d1")
-    assert dishes_table.delete_calls[0]["dish_id"] == "d1"
+    assert table.delete_calls[0] == {"PK": "DISH#d1", "SK": "METADATA"}
 
     store._delete_member_from_db("Bob")
-    assert members_table.delete_calls[0]["member_id"] == "Bob"
+    assert table.delete_calls[1] == {"PK": "MEMBER#Bob", "SK": "METADATA"}
 
-    store._delete_vote_from_db("v2")
-    assert votes_table.delete_calls[0]["vote_id"] == "v2"
+    store._delete_vote_from_db("Bob", "tuesday", "dinner")
+    assert table.delete_calls[2] == {"PK": "SLOT#tuesday#dinner", "SK": "USER#Bob"}
+
+
+def test_dynamodb_config_persistence(monkeypatch) -> None:
+    class FakeTable:
+        def __init__(self):
+            self.put_calls: list[dict] = []
+            self.items_by_pk: dict[str, list[dict]] = {}
+
+        def query(self, KeyConditionExpression=None, ExpressionAttributeValues=None,
+                  ExclusiveStartKey=None, IndexName=None):
+            if IndexName == "GSI1":
+                return {"Items": []}
+            pk = ExpressionAttributeValues[":pk"]
+            return {"Items": self.items_by_pk.get(pk, [])}
+
+        def put_item(self, Item=None):
+            self.put_calls.append(Item)
+            pk = Item["PK"]
+            self.items_by_pk.setdefault(pk, []).append(Item)
+
+        def delete_item(self, Key=None):
+            pass
+
+    table = FakeTable()
+
+    monkeypatch.setattr(store, "_USE_DYNAMODB", True)
+    monkeypatch.setattr(store, "_table", table)
+    monkeypatch.setattr(store, "_persistence_loaded", False)
+
+    store._persist_config_availability("monday", "lunch", False)
+    assert table.put_calls[-1]["PK"] == "CONFIG"
+    assert table.put_calls[-1]["SK"] == "AVAIL#monday#lunch"
+    assert table.put_calls[-1]["available"] is False
+
+    store._persist_config_shortlist("monday", "lunch", ["d1", "d2"])
+    assert table.put_calls[-1]["SK"] == "SHORTLIST#monday#lunch"
+    assert table.put_calls[-1]["dish_ids"] == ["d1", "d2"]
+
+    store._persist_config_menu("monday", "lunch", "d1")
+    assert table.put_calls[-1]["SK"] == "MENU#monday#lunch"
+    assert table.put_calls[-1]["dish_id"] == "d1"
+
+    store._persist_config_finalized(True)
+    assert table.put_calls[-1]["SK"] == "FINALIZED"
+    assert table.put_calls[-1]["finalized"] is True
+
+    # Test loading config back
+    store.reset_store()
+    store._load_config_from_db()
+    assert store._vote_availability["monday"]["lunch"] is False
+    assert "d1" in store._shortlists["monday"]["lunch"]
+    assert store._manual_menu["monday"]["lunch"] == "d1"
+    assert store._finalized is True
