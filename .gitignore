@@ -6,6 +6,10 @@ node_modules/
 dist/
 *.tsbuildinfo
 
+# Compiled vite config artifacts
+frontend/vite.config.js
+frontend/vite.config.d.ts
+
 cdk.out/
 
 dishes.csv

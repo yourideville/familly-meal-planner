@@ -16,3 +16,13 @@ applyTo: backend/**/*.py
 - Keep response models explicit and aligned with schema types in `app/schemas/`.
 - Prefer deterministic service behavior for testability (resettable in-memory state, predictable outputs).
 - Add or update tests when changing routing, validation, or menu generation behavior.
+
+## Storage Abstraction
+- `BACKEND_PERSISTENCE_MODE` env var controls the storage backend: `inmemory` (default) or `dynamodb`.
+- `boto3` must only be imported when `BACKEND_PERSISTENCE_MODE=dynamodb` to avoid import failures locally.
+- All DynamoDB I/O is gated behind `_USE_DYNAMODB` checks in the store module.
+- Tests always run against in-memory storage.
+
+## Admin Authentication
+- Single shared password, no per-user accounts.
+- Acceptable for a family-only application — do not over-engineer auth.
