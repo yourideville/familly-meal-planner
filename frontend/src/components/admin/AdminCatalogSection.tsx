@@ -1,3 +1,4 @@
+import { useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import { AdminButton } from "./AdminButton";
 import { AdminSection } from "./AdminSection";
@@ -27,6 +28,13 @@ export function AdminCatalogSection({
   onAddDish,
   onDeleteDish,
 }: AdminCatalogSectionProps) {
+  const [categoryFilter, setCategoryFilter] = useState<DishCategory | "all">("all");
+
+  const filteredDishes = useMemo(
+    () => (categoryFilter === "all" ? dishes : dishes.filter((dish) => dish.category === categoryFilter)),
+    [categoryFilter, dishes],
+  );
+
   return (
     <div className="admin-body">
       <AdminSection title="Catalogue" description="Créer un nouveau plat et gérer le catalogue existant.">
@@ -51,11 +59,23 @@ export function AdminCatalogSection({
           <AdminButton type="submit">Ajouter plat</AdminButton>
         </form>
 
-        {dishes.length === 0 ? (
+        <div className="filters">
+          <label>
+            Filtrer par catégorie
+            <select value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value as DishCategory | "all")}>
+              <option value="all">Tous ({dishes.length})</option>
+              {Object.entries(CATEGORY_LABELS_FR).map(([key, label]) => (
+                <option key={key} value={key}>{label}</option>
+              ))}
+            </select>
+          </label>
+        </div>
+
+        {filteredDishes.length === 0 ? (
           <p>Aucun plat disponible.</p>
         ) : (
           <ul className="dish-list">
-            {dishes.map((dish) => (
+            {filteredDishes.map((dish) => (
               <li key={dish.id} className="dish-item">
                 <div>
                   <strong>{dish.name}</strong>
