@@ -305,6 +305,32 @@ def _persist_config_finalized(finalized: bool) -> None:
     })
 
 
+# ---------------------------------------------------------------------------
+# Session persistence (DynamoDB only)
+# ---------------------------------------------------------------------------
+
+def save_session(token: str) -> None:
+    """Persist an admin session token."""
+    if not _USE_DYNAMODB:
+        return
+    _put_item({"PK": f"SESSION#{token}", "SK": "METADATA"})
+
+
+def delete_session(token: str) -> None:
+    """Remove an admin session token."""
+    if not _USE_DYNAMODB:
+        return
+    _delete_item(f"SESSION#{token}", "METADATA")
+
+
+def session_exists(token: str) -> bool:
+    """Check whether a session token is valid (DynamoDB lookup)."""
+    if not _USE_DYNAMODB:
+        return False
+    resp = _table.get_item(Key={"PK": f"SESSION#{token}", "SK": "METADATA"})
+    return "Item" in resp
+
+
 def reset_store() -> None:
     global _dishes, _votes, _members, _vote_availability, _finalized, _final_weekly_menu, _shortlists, _manual_menu, _persistence_loaded
 

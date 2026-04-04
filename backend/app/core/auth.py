@@ -4,6 +4,7 @@ import secrets
 from fastapi import HTTPException, Request, Response, status
 
 from app.core.ssm import get_admin_password
+from app.services import store
 
 ADMIN_USERNAME = "admin"
 ADMIN_PASSWORD_PARAMETER_NAME = os.getenv("ADMIN_PASSWORD_PARAMETER_NAME")
@@ -13,6 +14,16 @@ _USE_SECURE_COOKIE = os.getenv("SECURE_COOKIE", "").lower() in ("1", "true", "ye
 _COOKIE_SAMESITE: str = os.getenv("COOKIE_SAMESITE", "lax").lower()
 
 _active_sessions: set[str] = set()
+
+
+def _is_session_valid(token: str) -> bool:
+    """Check local cache first, then DynamoDB if available."""
+    if token in _active_sessions:
+        return True
+    if store.session_exists(token):
+        _active_sessions.add(token)
+        return True
+    return False
 
 
 def resolve_admin_password() -> str:
@@ -25,7 +36,7 @@ def resolve_admin_password() -> str:
 
 def get_current_admin(request: Request) -> str:
     cookie_value = request.cookies.get(ADMIN_SESSION_COOKIE)
-    if not cookie_value or cookie_value not in _active_sessions:
+    if not cookie_value or not _is_session_valid(cookie_value):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Accès administrateur requis",
@@ -42,6 +53,7 @@ def login_admin(response: Response, username: str, password: str) -> None:
 
     token = secrets.token_urlsafe(32)
     _active_sessions.add(token)
+    store.save_session(token)
 
     response.set_cookie(
         key=ADMIN_SESSION_COOKIE,
@@ -58,8 +70,9 @@ def logout_admin(response: Response) -> None:
 
 def invalidate_session(token: str) -> None:
     _active_sessions.discard(token)
+    store.delete_session(token)
 
 
 def is_admin_authenticated(request: Request) -> bool:
     cookie_value = request.cookies.get(ADMIN_SESSION_COOKIE)
-    return bool(cookie_value and cookie_value in _active_sessions)
+    return bool(cookie_value and _is_session_valid(cookie_value))
