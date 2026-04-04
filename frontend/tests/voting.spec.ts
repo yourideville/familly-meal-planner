@@ -1,4 +1,13 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
+
+const API_BASE = 'http://127.0.0.1:8000';
+
+async function loginAdmin(page: Page) {
+  const loginResp = await page.request.post(`${API_BASE}/admin/login`, {
+    data: { username: 'admin', password: 'password' },
+  });
+  expect(loginResp.ok()).toBeTruthy();
+}
 
 test.describe('Voting Page', () => {
   test.beforeEach(async ({ page }) => {
@@ -12,7 +21,9 @@ test.describe('Voting Page', () => {
   });
 
   test('does not expose closed vote meals for the selected day', async ({ page }) => {
-    const availabilityResponse = await page.request.get('http://127.0.0.1:8000/admin/vote-availability');
+    await loginAdmin(page);
+
+    const availabilityResponse = await page.request.get(`${API_BASE}/votes/availability`);
     expect(availabilityResponse.ok()).toBeTruthy();
 
     const slots = await availabilityResponse.json();
@@ -23,7 +34,7 @@ test.describe('Voting Page', () => {
       return slot;
     });
 
-    const setResponse = await page.request.put('http://127.0.0.1:8000/admin/vote-availability', {
+    const setResponse = await page.request.put(`${API_BASE}/admin/vote-availability`, {
       data: updatedSlots,
     });
     expect(setResponse.ok()).toBeTruthy();
