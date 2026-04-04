@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { AdminButton } from "./AdminButton";
 import { AdminSection } from "./AdminSection";
 import { MEAL_LABELS_FR, MEALS } from "../../constants/meals";
@@ -31,6 +32,11 @@ export function AdminVotesSection({
   onSetShortlist,
   shortlist,
 }: AdminVotesSectionProps) {
+  const sortedDishes = useMemo(
+    () => [...dishes].sort((a, b) => a.name.localeCompare(b.name)),
+    [dishes],
+  );
+
   return (
     <div className="admin-body">
       <AdminSection title="Disponibilité des votes" description="Activer ou désactiver les créneaux par jour et repas.">
@@ -85,7 +91,7 @@ export function AdminVotesSection({
         </div>
 
         <div className="shortlist-grid">
-          {dishes.map((dish) => (
+          {sortedDishes.map((dish) => (
             <label key={dish.id}>
               <input
                 type="checkbox"

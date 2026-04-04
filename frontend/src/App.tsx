@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { NavLink, Navigate, Route, Routes, useNavigate } from "react-router-dom";
+import { NavLink, Navigate, Route, Routes, useNavigate, useLocation } from "react-router-dom";
 
 import { getDishes, getWeeklyMenu, checkAdminSession, logoutAdmin } from "./api/client";
 import { CatalogPage } from "./pages/CatalogPage";
@@ -15,6 +15,7 @@ export default function App() {
   const [error, setError] = useState("");
   const [isAdminAuthenticated, setAdminAuthenticated] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
 
   async function loadDishes() {
     try {
@@ -57,6 +58,11 @@ export default function App() {
     void loadSession();
   }, []);
 
+  useEffect(() => {
+    void loadDishes();
+    void loadMenu();
+  }, [location.pathname]);
+
   return (
     <main className="container">
       <div className="app-shell">
@@ -95,7 +101,7 @@ export default function App() {
         {error && <p className="error">{error}</p>}
         <Routes>
           <Route path="/" element={<CatalogPage dishes={dishes} />} />
-          <Route path="/vote" element={<VotingPage dishes={dishes} />} />
+          <Route path="/vote" element={<VotingPage dishes={dishes} menu={menu} />} />
           <Route path="/menu" element={<WeeklyMenuPage menu={menu} onRefresh={loadMenu} />} />
           <Route
             path="/admin"

@@ -31,7 +31,10 @@ export function AdminCatalogSection({
   const [categoryFilter, setCategoryFilter] = useState<DishCategory | "all">("all");
 
   const filteredDishes = useMemo(
-    () => (categoryFilter === "all" ? dishes : dishes.filter((dish) => dish.category === categoryFilter)),
+    () => {
+      const filtered = categoryFilter === "all" ? dishes : dishes.filter((dish) => dish.category === categoryFilter);
+      return [...filtered].sort((a, b) => a.name.localeCompare(b.name));
+    },
     [categoryFilter, dishes],
   );
 

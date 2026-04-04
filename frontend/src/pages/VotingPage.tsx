@@ -4,10 +4,11 @@ import { createVote, getMembers, getVoteAvailability } from "../api/client";
 import { WEEK_DAY_LABELS_FR, WEEK_DAYS } from "../constants/weekdays";
 import { MEAL_LABELS_FR, MEALS } from "../constants/meals";
 import { INITIAL_AVAILABILITY } from "../constants/availability";
-import type { Dish, DishCategory, Meal, VoteSlot, VotePayload, Weekday, AvailabilityMap } from "../types/domain";
+import type { Dish, DishCategory, Meal, VoteSlot, VotePayload, Weekday, AvailabilityMap, WeeklyMenuResponse } from "../types/domain";
 
 interface VotingPageProps {
   dishes: Dish[];
+  menu: WeeklyMenuResponse | null;
 }
 
 const getCategoryForSlot = (day: Weekday, meal: Meal): DishCategory => {
@@ -20,7 +21,7 @@ const getCategoryForSlot = (day: Weekday, meal: Meal): DishCategory => {
   return "dinner";
 };
 
-export function VotingPage({ dishes }: VotingPageProps) {
+export function VotingPage({ dishes, menu }: VotingPageProps) {
   const [dishId, setDishId] = useState("");
   const [day, setDay] = useState<Weekday>("monday");
   const [meal, setMeal] = useState<Meal>("lunch");
@@ -103,9 +104,16 @@ export function VotingPage({ dishes }: VotingPageProps) {
   const slotCategory = getCategoryForSlot(day, meal);
 
   const availableDishes = useMemo(() => {
-    const filtered = dishes.filter((dish) => dish.category === slotCategory);
-    return filtered.length > 0 ? filtered : dishes;
-  }, [dishes, slotCategory]);
+    const shortlistIds = menu?.shortlists?.[day]?.[meal];
+    let filtered: Dish[];
+    if (shortlistIds && shortlistIds.length > 0) {
+      filtered = dishes.filter((dish) => shortlistIds.includes(dish.id));
+    } else {
+      filtered = dishes.filter((dish) => dish.category === slotCategory);
+      if (filtered.length === 0) filtered = dishes;
+    }
+    return [...filtered].sort((a, b) => a.name.localeCompare(b.name));
+  }, [dishes, slotCategory, menu, day, meal]);
 
   const slotAvailable = availability[day]?.[meal] ?? false;
 
