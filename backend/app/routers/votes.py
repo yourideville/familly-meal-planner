@@ -1,9 +1,14 @@
 from fastapi import APIRouter, HTTPException
 
-from app.schemas.common import CreateVoteRequest, Vote
+from app.schemas.common import CreateVoteRequest, Vote, VoteSlot
 from app.services import store
 
 router = APIRouter()
+
+
+@router.get("/availability", response_model=list[VoteSlot])
+def get_vote_availability() -> list[VoteSlot]:
+    return store.list_vote_availability()
 
 
 @router.get("", response_model=list[Vote])

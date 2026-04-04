@@ -62,7 +62,7 @@ export function deleteMember(name: string): Promise<void> {
 }
 
 export function getVoteAvailability(): Promise<VoteSlot[]> {
-  return request<VoteSlot[]>("/admin/vote-availability");
+  return request<VoteSlot[]>("/votes/availability");
 }
 
 export function setVoteAvailability(slots: VoteSlot[]): Promise<VoteSlot[]> {
