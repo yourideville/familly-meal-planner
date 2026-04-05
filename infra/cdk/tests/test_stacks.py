@@ -46,8 +46,16 @@ def test_backend_stack_creates_lambda_and_http_api():
     template = Template.from_stack(stack)
 
     template.resource_count_is("AWS::Lambda::Function", 1)
+    template.resource_count_is("AWS::Lambda::LayerVersion", 1)
     template.resource_count_is("AWS::ApiGatewayV2::Api", 1)
     template.resource_count_is("AWS::IAM::Policy", 1)
+
+    template.has_resource_properties(
+        "AWS::Lambda::Function",
+        {
+            "Architectures": ["arm64"],
+        },
+    )
 
 
 def test_frontend_stack_creates_bucket_and_distribution():
