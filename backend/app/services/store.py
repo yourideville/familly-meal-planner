@@ -331,6 +331,12 @@ def session_exists(token: str) -> bool:
     return "Item" in resp
 
 
+def invalidate_store_cache() -> None:
+    """Mark the in-memory cache as stale so the next operation reloads from DynamoDB."""
+    global _persistence_loaded
+    _persistence_loaded = False
+
+
 def reset_store() -> None:
     global _dishes, _votes, _members, _vote_availability, _finalized, _final_weekly_menu, _shortlists, _manual_menu, _persistence_loaded
 

@@ -1,7 +1,7 @@
 import os
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.routers import admin, dishes, health, members, menu, votes
@@ -27,6 +27,13 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.middleware("http")
+async def invalidate_store_cache_middleware(request: Request, call_next) -> Response:
+    """Invalidate store cache at the start of each request so DynamoDB data is fresh."""
+    store.invalidate_store_cache()
+    return await call_next(request)
+
 
 app.include_router(health.router, tags=["health"])
 app.include_router(dishes.router, prefix="/dishes", tags=["dishes"])
