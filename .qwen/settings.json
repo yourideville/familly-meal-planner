@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx *)",
+      "WebSearch",
+      "WebFetch(constructs.dev)",
+      "WebFetch(docs.aws.amazon.com)",
+      "Bash(git add *)",
+      "Bash(git commit *)"
+    ]
+  },
+  "$version": 3
+}

@@ -1,0 +1,14 @@
+---
+description: Frontend React and TypeScript architecture rules
+globs: frontend/src/**/*.{ts,tsx}
+alwaysApply: false
+---
+
+# Frontend React and TypeScript Rules
+
+- Keep UI text/constants shared in dedicated modules (for example weekday labels in `constants/`), not duplicated in pages.
+- Keep components focused: page components orchestrate data and compose UI; reusable rendering logic moves to shared components/hooks.
+- Prefer typed domain contracts from `types/` and avoid inline ad-hoc object shapes.
+- Handle async failures with explicit user-facing messages and avoid silent catches.
+- Avoid premature optimization; add memoization only when re-render hotspots are observed.
+- Keep accessibility basics: semantic elements, labels for form fields, and meaningful button text.

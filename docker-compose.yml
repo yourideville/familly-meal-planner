@@ -6,6 +6,8 @@ services:
     container_name: family-meal-planner-backend
     ports:
       - "8000:8000"
+    environment:
+      - BACKEND_PERSISTENCE_MODE=inmemory
     volumes:
       - ./backend/app:/app/app
 

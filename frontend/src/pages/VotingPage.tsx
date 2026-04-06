@@ -1,75 +1,218 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 
-import { createVote } from "../api/client";
-import type { Dish, Weekday } from "../types/domain";
-
-const weekDays: Weekday[] = [
-  "monday",
-  "tuesday",
-  "wednesday",
-  "thursday",
-  "friday",
-  "saturday",
-  "sunday",
-];
+import { createVote, getMembers, getVoteAvailability } from "../api/client";
+import { WEEK_DAY_LABELS_FR, WEEK_DAYS } from "../constants/weekdays";
+import { MEAL_LABELS_FR, MEALS } from "../constants/meals";
+import { INITIAL_AVAILABILITY } from "../constants/availability";
+import type { Dish, DishCategory, Meal, VoteSlot, VotePayload, Weekday, AvailabilityMap, WeeklyMenuResponse } from "../types/domain";
 
 interface VotingPageProps {
   dishes: Dish[];
+  menu: WeeklyMenuResponse | null;
 }
 
-export function VotingPage({ dishes }: VotingPageProps) {
-  const [userName, setUserName] = useState("Alex");
+const getCategoryForSlot = (day: Weekday, meal: Meal): DishCategory => {
+  if (meal === "lunch") {
+    return day === "saturday" || day === "sunday" ? "weekends_lunch" : "lunch";
+  }
+  if (meal === "dinner") {
+    return day === "saturday" ? "saturday_dinner" : "dinner";
+  }
+  return "dinner";
+};
+
+export function VotingPage({ dishes, menu }: VotingPageProps) {
   const [dishId, setDishId] = useState("");
   const [day, setDay] = useState<Weekday>("monday");
+  const [meal, setMeal] = useState<Meal>("lunch");
+  const [members, setMembers] = useState<string[]>([]);
+  const [selectedMember, setSelectedMember] = useState("");
+  const [availability, setAvailability] = useState<AvailabilityMap>({ ...INITIAL_AVAILABILITY });
   const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const memberList = await getMembers();
+        setMembers(memberList);
+        if (memberList.length > 0) {
+          setSelectedMember(memberList[0]);
+        }
+      } catch {
+        setMessage("Impossible de charger les membres.");
+      }
+    }
+
+    void load();
+  }, []);
+
+  useEffect(() => {
+    async function loadAvailability() {
+      try {
+        const slots: VoteSlot[] = await getVoteAvailability();
+        const updated: AvailabilityMap = {
+          monday: { ...INITIAL_AVAILABILITY.monday },
+          tuesday: { ...INITIAL_AVAILABILITY.tuesday },
+          wednesday: { ...INITIAL_AVAILABILITY.wednesday },
+          thursday: { ...INITIAL_AVAILABILITY.thursday },
+          friday: { ...INITIAL_AVAILABILITY.friday },
+          saturday: { ...INITIAL_AVAILABILITY.saturday },
+          sunday: { ...INITIAL_AVAILABILITY.sunday },
+        };
+        slots.forEach((slot) => {
+          updated[slot.day][slot.meal] = slot.available;
+        });
+        setAvailability(updated);
+      } catch {
+        setMessage("Impossible de charger la disponibilité des votes.");
+      }
+    }
+
+    void loadAvailability();
+  }, []);
+
+  const openDays = useMemo(
+    () => WEEK_DAYS.filter((item) => availability[item].lunch || availability[item].dinner),
+    [availability],
+  );
+
+  useEffect(() => {
+    if (openDays.length === 0) {
+      return;
+    }
+    if (!openDays.includes(day)) {
+      setDay(openDays[0]);
+    }
+  }, [day, openDays]);
+
+  const openMeals = useMemo(
+    () => MEALS.filter((item) => availability[day]?.[item]),
+    [availability, day],
+  );
+
+  const noOpenSlots = openDays.length === 0;
+
+  useEffect(() => {
+    if (openMeals.length === 0) {
+      return;
+    }
+    if (!openMeals.includes(meal)) {
+      setMeal(openMeals[0]);
+    }
+  }, [meal, openMeals]);
+
+  const slotCategory = getCategoryForSlot(day, meal);
+
+  const availableDishes = useMemo(() => {
+    const shortlistIds = menu?.shortlists?.[day]?.[meal];
+    let filtered: Dish[];
+    if (shortlistIds && shortlistIds.length > 0) {
+      filtered = dishes.filter((dish) => shortlistIds.includes(dish.id));
+    } else {
+      filtered = dishes.filter((dish) => dish.category === slotCategory);
+      if (filtered.length === 0) filtered = dishes;
+    }
+    return [...filtered].sort((a, b) => a.name.localeCompare(b.name));
+  }, [dishes, slotCategory, menu, day, meal]);
+
+  const slotAvailable = availability[day]?.[meal] ?? false;
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!dishId) {
-      setMessage("Please select a dish.");
+      setMessage("Veuillez sélectionner un plat.");
+      return;
+    }
+    if (!selectedMember) {
+      setMessage("Veuillez sélectionner un membre.");
+      return;
+    }
+    if (!slotAvailable) {
+      setMessage("Ce créneau n'est pas disponible pour voter.");
       return;
     }
 
     try {
-      await createVote({ user_name: userName, dish_id: dishId, day });
-      setMessage("Vote submitted.");
+      await createVote({ user_name: selectedMember, dish_id: dishId, day, meal } as VotePayload);
+      setMessage("Vote enregistré.");
     } catch {
-      setMessage("Could not submit vote.");
+      setMessage("Impossible d'envoyer le vote.");
     }
   }
 
   return (
-    <section>
-      <h2>Voting</h2>
+    <section className="card">
+      <div className="section-head">
+        <h2>Vote</h2>
+        <p>Exprimez votre préférence pour le déjeuner ou le dîner.</p>
+      </div>
       <form onSubmit={onSubmit} className="stack">
         <label>
-          Your name
-          <input value={userName} onChange={(event) => setUserName(event.target.value)} />
-        </label>
-        <label>
-          Day
-          <select value={day} onChange={(event) => setDay(event.target.value as Weekday)}>
-            {weekDays.map((item) => (
-              <option key={item} value={item}>
-                {item}
+          Membre
+          <select value={selectedMember} onChange={(event) => setSelectedMember(event.target.value)}>
+            <option value="">Sélectionnez un membre</option>
+            {members.map((member) => (
+              <option key={member} value={member}>
+                {member}
               </option>
             ))}
           </select>
         </label>
         <label>
-          Dish
+          Jour
+          <select
+            value={day}
+            onChange={(event) => setDay(event.target.value as Weekday)}
+            disabled={noOpenSlots}
+          >
+            {noOpenSlots ? (
+              <option value="">Aucun jour ouvert</option>
+            ) : (
+              openDays.map((item) => (
+                <option key={item} value={item}>
+                  {WEEK_DAY_LABELS_FR[item]}
+                </option>
+              ))
+            )}
+          </select>
+        </label>
+        <label>
+          Repas
+          <select
+            value={meal}
+            onChange={(event) => setMeal(event.target.value as Meal)}
+            disabled={noOpenSlots || openMeals.length === 0}
+          >
+            {openMeals.length === 0 ? (
+              <option value="">Aucun repas ouvert</option>
+            ) : (
+              openMeals.map((item) => (
+                <option key={item} value={item}>
+                  {MEAL_LABELS_FR[item]}
+                </option>
+              ))
+            )}
+          </select>
+        </label>
+        <label>
+          Plat
           <select value={dishId} onChange={(event) => setDishId(event.target.value)}>
-            <option value="">Select one</option>
-            {dishes.map((dish) => (
+            <option value="">Sélectionnez un plat</option>
+            {availableDishes.map((dish) => (
               <option key={dish.id} value={dish.id}>
                 {dish.name}
               </option>
             ))}
           </select>
         </label>
-        <button type="submit">Submit vote</button>
+        <p>Catégorie du créneau : {slotCategory.split("_").join(" ")}</p>
+        <button type="submit" disabled={!slotAvailable || openDays.length === 0 || openMeals.length === 0}>
+          Envoyer le vote
+        </button>
+        {openDays.length === 0 && <p className="error">Aucun créneau de vote ouvert actuellement.</p>}
       </form>
-      {message && <p>{message}</p>}
+      {!slotAvailable && <p className="error">Ce créneau n'est pas disponible pour voter.</p>}
+      {message && <p className="info">{message}</p>}
     </section>
   );
 }
