@@ -6,6 +6,7 @@ import {
   deleteMember,
   getMembers,
   getVoteAvailability,
+  getVotes,
   setMenuItem,
   setShortlist,
   setVoteAvailability,
@@ -24,6 +25,7 @@ import type {
   Dish,
   DishCategory,
   Meal,
+  Vote,
   VoteSlot,
   WeeklyMenuResponse,
   Weekday,
@@ -61,11 +63,16 @@ export function AdminPage({ dishes, refreshDishes, refreshMenu, menu }: AdminPag
   const [selectedManualDish, setSelectedManualDish] = useState("");
   const [message, setMessage] = useState("");
   const [selectedSection, setSelectedSection] = useState<AdminTab>("members");
+  const [votes, setVotes] = useState<Vote[]>([]);
 
   useEffect(() => {
     void loadMembers();
     void loadAvailability();
   }, []);
+
+  useEffect(() => {
+    void loadVotes();
+  }, [selectedSection]);
 
   useEffect(() => {
     setSelectedShortlist(menu?.shortlists?.[selectedDay]?.[selectedMeal] ?? []);
@@ -104,6 +111,15 @@ export function AdminPage({ dishes, refreshDishes, refreshMenu, menu }: AdminPag
       setAvailability(updatedAvailability);
     } catch {
       setMessage("Impossible de charger la disponibilité des votes.");
+    }
+  }
+
+  async function loadVotes() {
+    try {
+      const allVotes = await getVotes();
+      setVotes(allVotes);
+    } catch {
+      setMessage("Impossible de charger les votes.");
     }
   }
 
@@ -313,6 +329,7 @@ export function AdminPage({ dishes, refreshDishes, refreshMenu, menu }: AdminPag
       {selectedSection === "menu" && (
         <AdminMenuSection
           dishes={dishes}
+          votes={votes}
           selectedDay={selectedDay}
           selectedMeal={selectedMeal}
           selectedManualDish={selectedManualDish}

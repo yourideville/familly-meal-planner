@@ -33,8 +33,21 @@ export function AdminVotesSection({
   shortlist,
 }: AdminVotesSectionProps) {
   const sortedDishes = useMemo(
-    () => [...dishes].sort((a, b) => a.name.localeCompare(b.name)),
-    [dishes],
+    () =>
+      [...dishes]
+        .filter((dish) => {
+          if (selectedDay === "saturday") {
+            if (selectedMeal === "lunch") return dish.category === "weekends_lunch";
+            return selectedMeal === "dinner" && dish.category === "saturday_dinner";
+          }
+          if (selectedDay === "sunday") {
+            if (selectedMeal === "lunch") return dish.category === "weekends_lunch";
+            return selectedMeal === "dinner" && dish.category === "dinner";
+          }
+          return dish.category === selectedMeal;
+        })
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    [dishes, selectedDay, selectedMeal],
   );
 
   return (

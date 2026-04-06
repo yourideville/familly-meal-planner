@@ -1,11 +1,13 @@
+import { useMemo } from "react";
 import { AdminButton } from "./AdminButton";
 import { AdminSection } from "./AdminSection";
 import { MEAL_LABELS_FR, MEALS } from "../../constants/meals";
 import { WEEK_DAY_LABELS_FR, WEEK_DAYS } from "../../constants/weekdays";
-import type { Dish, Meal, WeeklyMenuResponse, Weekday } from "../../types/domain";
+import type { Dish, Meal, Vote, WeeklyMenuResponse, Weekday } from "../../types/domain";
 
 interface AdminMenuSectionProps {
   dishes: Dish[];
+  votes: Vote[];
   selectedDay: Weekday;
   selectedMeal: Meal;
   selectedManualDish: string;
@@ -20,6 +22,7 @@ interface AdminMenuSectionProps {
 
 export function AdminMenuSection({
   dishes,
+  votes,
   selectedDay,
   selectedMeal,
   selectedManualDish,
@@ -31,6 +34,28 @@ export function AdminMenuSection({
   onUnvalidateMenu,
   menu,
 }: AdminMenuSectionProps) {
+  const votesForSlot = useMemo(
+    () =>
+      votes
+        .filter((vote) => vote.day === selectedDay && vote.meal === selectedMeal)
+        .map((vote) => ({
+          ...vote,
+          dishName: dishes.find((d) => d.id === vote.dish_id)?.name ?? vote.dish_id,
+        })),
+    [votes, selectedDay, selectedMeal, dishes],
+  );
+
+  const voteCounts = useMemo(() => {
+    const counts: Record<string, string[]> = {};
+    votesForSlot.forEach((vote) => {
+      if (!counts[vote.dish_id]) {
+        counts[vote.dish_id] = [];
+      }
+      counts[vote.dish_id].push(vote.user_name);
+    });
+    return counts;
+  }, [votesForSlot]);
+
   return (
     <div className="admin-body">
       <AdminSection title="Remplacement manuel" description="Forcer un plat spécifique pour un jour et un repas.">
@@ -71,6 +96,27 @@ export function AdminMenuSection({
         <AdminButton onClick={onSetManualMenu} type="button">
           Enregistrer le remplacement
         </AdminButton>
+      </AdminSection>
+
+      <AdminSection title="Votes pour ce créneau" description={`Votes pour ${WEEK_DAY_LABELS_FR[selectedDay]} ${MEAL_LABELS_FR[selectedMeal]}.`}>
+        {Object.keys(voteCounts).length === 0 ? (
+          <p className="status-text">Aucun vote pour ce créneau.</p>
+        ) : (
+          <ul className="vote-list">
+            {Object.entries(voteCounts)
+              .sort(([, aVoters], [, bVoters]) => bVoters.length - aVoters.length)
+              .map(([dishId, voters]) => {
+                const dish = dishes.find((d) => d.id === dishId);
+                return (
+                  <li key={dishId}>
+                    <span className="vote-dish-name">{dish?.name ?? dishId}</span>
+                    <span className="vote-count">{voters.length} vote{voters.length > 1 ? "s" : ""}</span>
+                    <span className="vote-voters">{voters.join(", ")}</span>
+                  </li>
+                );
+              })}
+          </ul>
+        )}
       </AdminSection>
 
       <AdminSection title="Validation finale" description="Valider ou dévalider le menu de la semaine.">
