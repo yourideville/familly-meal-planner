@@ -1,5 +1,5 @@
 from aws_cdk import CfnOutput, Duration, Stack, aws_apigatewayv2_alpha as apigw, aws_apigatewayv2_integrations_alpha as integrations, aws_iam as iam, aws_lambda as lambda_
-from aws_cdk.aws_lambda_python_alpha import PythonLayerVersion
+from aws_cdk.aws_lambda_python_alpha import PythonLayerVersion, BundlingOptions
 from constructs import Construct
 
 ADMIN_PASSWORD_SSM_PATTERN = "/family-meal-planner/{stage}/admin-password"
@@ -24,6 +24,10 @@ class BackendStack(Stack):
             entry="../../backend",
             compatible_runtimes=[lambda_.Runtime.PYTHON_3_13],
             compatible_architectures=[lambda_.Architecture.ARM_64],
+            bundling=BundlingOptions(
+                platform="linux/arm64",
+                environment={"PIP_ONLY_BINARY": ":all:"},
+            ),
         )
 
         self.backend_function = lambda_.Function(
