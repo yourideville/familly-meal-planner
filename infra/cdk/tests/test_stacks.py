@@ -1,5 +1,7 @@
+import os
 import aws_cdk as cdk
 from aws_cdk.assertions import Template
+from unittest.mock import patch, MagicMock
 
 from stacks.backend_stack import BackendStack
 from stacks.dynamodb_stack import DynamoDbStack
@@ -37,16 +39,21 @@ def test_dynamodb_stack_creates_single_table_with_gsi():
 def test_backend_stack_creates_lambda_and_http_api():
     app = cdk.App()
     data_stack = DynamoDbStack(app, "TestDataStack", stage="test")
-    stack = BackendStack(
-        app,
-        "TestBackendStack",
-        stage="test",
-        table=data_stack.table,
-    )
-    template = Template.from_stack(stack)
+    
+    # Mock PythonLayerVersion to avoid Docker bundling during tests
+    with patch("stacks.backend_stack.PythonLayerVersion") as mock_layer:
+        mock_layer_instance = MagicMock()
+        mock_layer.return_value = mock_layer_instance
+        
+        stack = BackendStack(
+            app,
+            "TestBackendStack",
+            stage="test",
+            table=data_stack.table,
+        )
+        template = Template.from_stack(stack)
 
     template.resource_count_is("AWS::Lambda::Function", 1)
-    template.resource_count_is("AWS::Lambda::LayerVersion", 1)
     template.resource_count_is("AWS::ApiGatewayV2::Api", 1)
     template.resource_count_is("AWS::IAM::Policy", 1)
 
