@@ -4,6 +4,13 @@ from constructs import Construct
 
 ADMIN_PASSWORD_SSM_PATTERN = "/family-meal-planner/{stage}/admin-password"
 
+# CORS origins by stage - use specific origins for non-dev stages
+CORS_ORIGINS_BY_STAGE = {
+    "dev": "*",  # Allow all for local development
+    # Add production origins here when ready:
+    # "prod": "https://your-cloudfront-domain.cloudfront.net",
+}
+
 
 class BackendStack(Stack):
     def __init__(
@@ -18,9 +25,12 @@ class BackendStack(Stack):
 
         admin_password_parameter_name = ADMIN_PASSWORD_SSM_PATTERN.format(stage=stage)
 
+        # Get CORS origins for this stage, default to "*" if not configured
+        cors_origins = CORS_ORIGINS_BY_STAGE.get(stage, "*")
+
         deps_layer = PythonLayerVersion(
             self,
-            "BackendDepsLayer",
+            f"BackendDepsLayer-{stage}",  # Include stage in name for isolation
             entry="../../backend",
             compatible_runtimes=[lambda_.Runtime.PYTHON_3_13],
             compatible_architectures=[lambda_.Architecture.ARM_64],
@@ -40,14 +50,15 @@ class BackendStack(Stack):
             handler="app.lambda_handler.handler",
             runtime=lambda_.Runtime.PYTHON_3_13,
             architecture=lambda_.Architecture.ARM_64,
-            timeout=Duration.seconds(30),
+            timeout=Duration.seconds(10),  # Reduced from 30s - most requests should complete in <1s
             layers=[deps_layer],
             environment={
                 "TABLE_NAME": table.table_name,
                 "STAGE": stage,
                 "BACKEND_PERSISTENCE_MODE": "dynamodb",
                 "ADMIN_PASSWORD_PARAMETER_NAME": admin_password_parameter_name,
-                "CORS_ALLOWED_ORIGINS": "*",
+                "ADMIN_PASSWORD": "CHANGEME",  # Fallback for bootstrapping - should be updated in SSM
+                "CORS_ALLOWED_ORIGINS": cors_origins,
                 "SECURE_COOKIE": "true",
                 "COOKIE_SAMESITE": "none",
             },

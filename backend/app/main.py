@@ -1,4 +1,5 @@
 import os
+from collections.abc import Awaitable, Callable
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request, Response
@@ -28,10 +29,18 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# HTTP methods that modify state and should trigger cache invalidation
+_MUTATION_METHODS = {"POST", "PUT", "DELETE", "PATCH"}
+
+
 @app.middleware("http")
-async def invalidate_store_cache_middleware(request: Request, call_next) -> Response:
-    """Invalidate store cache at the start of each request so DynamoDB data is fresh."""
-    store.invalidate_store_cache()
+async def invalidate_store_cache_middleware(
+    request: Request,
+    call_next: Callable[[Request], Awaitable[Response]],
+) -> Response:
+    """Invalidate store cache only on mutation requests to preserve DynamoDB read caching."""
+    if request.method.upper() in _MUTATION_METHODS:
+        store.invalidate_store_cache()
     return await call_next(request)
 
 

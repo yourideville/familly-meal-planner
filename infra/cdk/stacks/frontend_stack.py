@@ -30,12 +30,14 @@ class FrontendStack(Stack):
     ) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
+        # Use DESTROY for dev, RETAIN for other stages to prevent accidental data loss
+        is_dev = stage == "dev"
         self.bucket = s3.Bucket(
             self,
             "FrontendBucket",
             block_public_access=s3.BlockPublicAccess.BLOCK_ALL,
-            removal_policy=RemovalPolicy.DESTROY,
-            auto_delete_objects=True,
+            removal_policy=RemovalPolicy.DESTROY if is_dev else RemovalPolicy.RETAIN,
+            auto_delete_objects=is_dev,
         )
 
         strip_api_prefix_fn = cloudfront.Function(

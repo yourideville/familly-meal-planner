@@ -90,16 +90,17 @@ def is_finalization_time() -> bool:
 def should_create_new_period() -> bool:
     """
     Check if we should create a new menu period.
-    
-    New periods are created on Tuesday after finalization.
-    This happens automatically after the previous period is finalized.
-    
+
+    New periods can be created from Tuesday through Sunday (weekday >= 1).
+    Monday is reserved for finalization, so no new periods are created then.
+
     Returns:
-        True if it's Tuesday or later and no active period exists
+        True if it's Tuesday or later (weekday >= 1), False on Monday
     """
     now = datetime.now()
-    
-    # Tuesday = 1
+
+    # Tuesday = 1, Wednesday = 2, ..., Sunday = 6
+    # Monday = 0 (finalization day, no new periods)
     return now.weekday() >= 1
 
 
