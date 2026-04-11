@@ -53,9 +53,22 @@ export interface VoteSlot {
 }
 
 export interface WeeklyMenuResponse {
+  period_id: string;  // e.g., "2026-04-16"
+  period_label: string;  // e.g., "16/04 - 23/04"
+  start_date: string;  // ISO date (Thursday)
+  end_date: string;  // ISO date (following Wednesday)
   items: WeeklyMenuItem[];
   finalized?: boolean;
   shortlists?: Partial<Record<Weekday, Partial<Record<Meal, string[]>>>>;
+}
+
+export interface MenuPeriod {
+  period_id: string;  // e.g., "2026-04-16"
+  start_date: string;  // ISO date (Thursday)
+  end_date: string;  // ISO date (following Wednesday)
+  display_label: string;  // e.g., "16/04 - 23/04"
+  created_at: string;  // ISO timestamp
+  finalized_at: string | null;  // ISO timestamp or null
 }
 
 export type AvailabilityMap = Record<Weekday, Record<Meal, boolean>>;

@@ -34,6 +34,24 @@ export function AdminMenuSection({
   onUnvalidateMenu,
   menu,
 }: AdminMenuSectionProps) {
+  const filteredDishes = useMemo(
+    () =>
+      [...dishes]
+        .filter((dish) => {
+          if (selectedDay === "saturday") {
+            if (selectedMeal === "lunch") return dish.category === "weekends_lunch";
+            return selectedMeal === "dinner" && dish.category === "saturday_dinner";
+          }
+          if (selectedDay === "sunday") {
+            if (selectedMeal === "lunch") return dish.category === "weekends_lunch";
+            return selectedMeal === "dinner" && dish.category === "dinner";
+          }
+          return dish.category === selectedMeal;
+        })
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    [dishes, selectedDay, selectedMeal],
+  );
+
   const votesForSlot = useMemo(
     () =>
       votes
@@ -84,7 +102,7 @@ export function AdminMenuSection({
             Plat manuel
             <select value={selectedManualDish} onChange={(event) => onSelectManualDish(event.target.value)}>
               <option value="">Utiliser les votes</option>
-              {dishes.map((dish) => (
+              {filteredDishes.map((dish) => (
                 <option key={dish.id} value={dish.id}>
                   {dish.name}
                 </option>

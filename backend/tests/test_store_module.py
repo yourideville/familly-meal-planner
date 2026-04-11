@@ -1,5 +1,6 @@
 from app.schemas.common import CreateDishRequest, CreateVoteRequest
 from app.services import store
+import pytest
 
 
 def test_store_update_member_and_vote_consistency() -> None:
@@ -53,8 +54,48 @@ def test_lambda_handler_importable() -> None:
     assert lambda_handler_module.handler is not None
 
 
+def test_factory_requires_table_name_for_dynamodb_mode(monkeypatch) -> None:
+    """Test that factory raises RuntimeError when TABLE_NAME is missing in dynamodb mode."""
+    import os
+    from app.services.store import get_store, reset_store
+    
+    # Clear any existing store
+    reset_store()
+    
+    # Set mode to dynamodb but don't set TABLE_NAME
+    monkeypatch.setenv("BACKEND_PERSISTENCE_MODE", "dynamodb")
+    monkeypatch.delenv("TABLE_NAME", raising=False)
+    
+    with pytest.raises(RuntimeError) as exc_info:
+        get_store()
+    
+    assert "TABLE_NAME environment variable is required" in str(exc_info.value)
+    
+    # Clean up
+    reset_store()
+
+
+def test_factory_creates_inmemory_by_default(monkeypatch) -> None:
+    """Test that factory creates InMemoryStore when no env vars are set."""
+    from app.services.store import get_store, reset_store
+    from app.services.store_inmemory import InMemoryStore
+    
+    # Clear any existing store and env vars
+    reset_store()
+    monkeypatch.delenv("BACKEND_PERSISTENCE_MODE", raising=False)
+    monkeypatch.delenv("TABLE_NAME", raising=False)
+    
+    store_instance = get_store()
+    
+    assert isinstance(store_instance, InMemoryStore)
+    
+    # Clean up
+    reset_store()
+
+
 def test_dynamodb_store_loading_and_query(monkeypatch) -> None:
     from app.schemas.common import Dish, Vote
+    from app.services.store_dynamodb import DynamoDBStore
 
     class FakeTable:
         def __init__(self):
@@ -99,20 +140,34 @@ def test_dynamodb_store_loading_and_query(monkeypatch) -> None:
         "dish_id": "d1",
     })
 
-    monkeypatch.setattr(store, "_USE_DYNAMODB", True)
-    monkeypatch.setattr(store, "_persistence_loaded", False)
-    monkeypatch.setattr(store, "_table", table)
+    # Create DynamoDBStore without connecting to real DynamoDB
+    store_instance = object.__new__(DynamoDBStore)
+    store_instance._table = table
+    store_instance._persistence_loaded = False
+    # Initialize in-memory state
+    from app.services.store_inmemory import MEALS, WEEK_DAYS
+    store_instance._dishes = {}
+    store_instance._votes = []
+    store_instance._members = []
+    store_instance._vote_availability = {day: {meal: True for meal in MEALS} for day in WEEK_DAYS}
+    store_instance._finalized = False
+    store_instance._final_weekly_menu = None
+    store_instance._shortlists = {day: {meal: set() for meal in MEALS} for day in WEEK_DAYS}
+    store_instance._manual_menu = {day: {meal: None for meal in MEALS} for day in WEEK_DAYS}
+    store_instance._periods = {}
+    store_instance._active_period_id = None
+    
+    store_instance._ensure_store_loaded()
 
-    store.reset_store()
-    store._ensure_store_loaded()
-
-    assert store.list_dishes()[0].name == "Test Dish"
-    assert store.list_members() == ["Alice"]
-    assert store.list_votes()[0].user_name == "Alice"
+    assert store_instance.list_dishes()[0].name == "Test Dish"
+    assert store_instance.list_members() == ["Alice"]
+    assert store_instance.list_votes()[0].user_name == "Alice"
 
 
 def test_dynamodb_store_persist_and_delete_helpers(monkeypatch) -> None:
     from app.schemas.common import Dish, Vote
+    from app.services.store_dynamodb import DynamoDBStore
+    from app.services.store_inmemory import MEALS, WEEK_DAYS
 
     class FakeTable:
         def __init__(self):
@@ -131,37 +186,51 @@ def test_dynamodb_store_persist_and_delete_helpers(monkeypatch) -> None:
 
     table = FakeTable()
 
-    monkeypatch.setattr(store, "_USE_DYNAMODB", True)
-    monkeypatch.setattr(store, "_table", table)
-    monkeypatch.setattr(store, "_persistence_loaded", False)
+    store_instance = object.__new__(DynamoDBStore)
+    store_instance._table = table
+    # Initialize in-memory state
+    store_instance._dishes = {}
+    store_instance._votes = []
+    store_instance._members = []
+    store_instance._vote_availability = {day: {meal: True for meal in MEALS} for day in WEEK_DAYS}
+    store_instance._finalized = False
+    store_instance._final_weekly_menu = None
+    store_instance._shortlists = {day: {meal: set() for meal in MEALS} for day in WEEK_DAYS}
+    store_instance._manual_menu = {day: {meal: None for meal in MEALS} for day in WEEK_DAYS}
+    store_instance._periods = {}
+    store_instance._active_period_id = None
+    store_instance._persistence_loaded = True
 
     dish = Dish(id="d1", name="Test Dish", tags=["tag"], category="lunch")
-    store._persist_dish(dish)
+    store_instance._persist_dish(dish)
     assert table.put_calls[0]["PK"] == "DISH#d1"
     assert table.put_calls[0]["SK"] == "METADATA"
     assert table.put_calls[0]["name"] == "Test Dish"
 
-    store._persist_member("Bob")
+    store_instance._persist_member("Bob")
     assert table.put_calls[1]["PK"] == "MEMBER#Bob"
     assert table.put_calls[1]["SK"] == "METADATA"
 
     vote = Vote(user_name="Bob", dish_id="d1", day="tuesday", meal="dinner")
-    store._persist_vote(vote)
+    store_instance._persist_vote(vote)
     assert table.put_calls[2]["PK"] == "SLOT#tuesday#dinner"
     assert table.put_calls[2]["SK"] == "USER#Bob"
     assert table.put_calls[2]["dish_id"] == "d1"
 
-    store._delete_dish_from_db("d1")
+    store_instance._delete_dish_from_db("d1")
     assert table.delete_calls[0] == {"PK": "DISH#d1", "SK": "METADATA"}
 
-    store._delete_member_from_db("Bob")
+    store_instance._delete_member_from_db("Bob")
     assert table.delete_calls[1] == {"PK": "MEMBER#Bob", "SK": "METADATA"}
 
-    store._delete_vote_from_db("Bob", "tuesday", "dinner")
+    store_instance._delete_vote_from_db("Bob", "tuesday", "dinner")
     assert table.delete_calls[2] == {"PK": "SLOT#tuesday#dinner", "SK": "USER#Bob"}
 
 
 def test_dynamodb_config_persistence(monkeypatch) -> None:
+    from app.services.store_dynamodb import DynamoDBStore
+    from app.services.store_inmemory import MEALS, WEEK_DAYS
+
     class FakeTable:
         def __init__(self):
             self.put_calls: list[dict] = []
@@ -184,31 +253,42 @@ def test_dynamodb_config_persistence(monkeypatch) -> None:
 
     table = FakeTable()
 
-    monkeypatch.setattr(store, "_USE_DYNAMODB", True)
-    monkeypatch.setattr(store, "_table", table)
-    monkeypatch.setattr(store, "_persistence_loaded", False)
+    store_instance = object.__new__(DynamoDBStore)
+    store_instance._table = table
+    # Initialize in-memory state
+    store_instance._dishes = {}
+    store_instance._votes = []
+    store_instance._members = []
+    store_instance._vote_availability = {day: {meal: True for meal in MEALS} for day in WEEK_DAYS}
+    store_instance._finalized = False
+    store_instance._final_weekly_menu = None
+    store_instance._shortlists = {day: {meal: set() for meal in MEALS} for day in WEEK_DAYS}
+    store_instance._manual_menu = {day: {meal: None for meal in MEALS} for day in WEEK_DAYS}
+    store_instance._periods = {}
+    store_instance._active_period_id = None
+    store_instance._persistence_loaded = False
 
-    store._persist_config_availability("monday", "lunch", False)
+    store_instance._persist_config_availability("monday", "lunch", False)
     assert table.put_calls[-1]["PK"] == "CONFIG"
     assert table.put_calls[-1]["SK"] == "AVAIL#monday#lunch"
     assert table.put_calls[-1]["available"] is False
 
-    store._persist_config_shortlist("monday", "lunch", ["d1", "d2"])
+    store_instance._persist_config_shortlist("monday", "lunch", ["d1", "d2"])
     assert table.put_calls[-1]["SK"] == "SHORTLIST#monday#lunch"
     assert table.put_calls[-1]["dish_ids"] == ["d1", "d2"]
 
-    store._persist_config_menu("monday", "lunch", "d1")
+    store_instance._persist_config_menu("monday", "lunch", "d1")
     assert table.put_calls[-1]["SK"] == "MENU#monday#lunch"
     assert table.put_calls[-1]["dish_id"] == "d1"
 
-    store._persist_config_finalized(True)
+    store_instance._persist_config_finalized(True)
     assert table.put_calls[-1]["SK"] == "FINALIZED"
     assert table.put_calls[-1]["finalized"] is True
 
     # Test loading config back
-    store.reset_store()
-    store._load_config_from_db()
-    assert store._vote_availability["monday"]["lunch"] is False
-    assert "d1" in store._shortlists["monday"]["lunch"]
-    assert store._manual_menu["monday"]["lunch"] == "d1"
-    assert store._finalized is True
+    store_instance.reset_store()
+    store_instance._load_config_from_db()
+    assert store_instance._vote_availability["monday"]["lunch"] is False
+    assert "d1" in store_instance._shortlists["monday"]["lunch"]
+    assert store_instance._manual_menu["monday"]["lunch"] == "d1"
+    assert store_instance._finalized is True

@@ -9,6 +9,7 @@ import type {
   WeeklyMenuResponse,
   VoteSlot,
   DishCategory,
+  MenuPeriod,
 } from "../types/domain";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "/api";
@@ -106,6 +107,14 @@ export function getVotes(): Promise<Vote[]> {
 
 export function getWeeklyMenu(): Promise<WeeklyMenuResponse> {
   return request<WeeklyMenuResponse>("/weekly-menu");
+}
+
+export function getMenuPeriods(limit: number = 12): Promise<MenuPeriod[]> {
+  return request<MenuPeriod[]>(`/weekly-menu/periods?limit=${limit}`);
+}
+
+export function getCurrentPeriod(): Promise<MenuPeriod> {
+  return request<MenuPeriod>("/weekly-menu/current-period");
 }
 
 export function createDish(payload: Omit<Dish, "id">): Promise<Dish> {

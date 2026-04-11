@@ -6,7 +6,12 @@
       "WebFetch(constructs.dev)",
       "WebFetch(docs.aws.amazon.com)",
       "Bash(git add *)",
-      "Bash(git commit *)"
+      "Bash(git commit *)",
+      "Bash(mkdir *)",
+      "Bash(cp *)",
+      "Bash(npm run *)",
+      "Bash(python *)",
+      "Bash(source *)"
     ]
   },
   "$version": 3

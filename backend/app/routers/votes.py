@@ -8,16 +8,19 @@ router = APIRouter()
 
 @router.get("/availability", response_model=list[VoteSlot])
 def get_vote_availability() -> list[VoteSlot]:
+    store.auto_finalize_if_needed()
     return store.list_vote_availability()
 
 
 @router.get("", response_model=list[Vote])
 def get_votes() -> list[Vote]:
+    store.auto_finalize_if_needed()
     return store.list_votes()
 
 
 @router.post("", response_model=Vote)
 def post_vote(payload: CreateVoteRequest) -> Vote:
+    """Create a new vote. Voting is only open Friday-Sunday."""
     try:
         return store.add_vote(payload)
     except KeyError:
