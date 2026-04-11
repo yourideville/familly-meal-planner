@@ -144,25 +144,62 @@ python scripts/manage_data.py --api-url http://localhost:8000 --admin-password Y
 
 ## Testing
 
+The project includes comprehensive automated tests for both backend and frontend.
+
 ### Backend tests
 
 ```bash
 cd backend
 source /home/youri/Projects/Sources/.venv/bin/activate
+
+# Run all tests with coverage
 pytest --cov=app --cov-report=term-missing
+
+# Run specific test file
+pytest tests/test_auth.py -v
+
+# Generate HTML coverage report
+pytest --cov=app --cov-report=html
+# Then open: htmlcov/index.html
 ```
 
+**Test coverage:** 145 tests, 72% coverage (91 new tests added)
+
 ### Frontend tests
+
+#### Unit Tests (Vitest)
 
 ```bash
 cd frontend
 npm install
-npx playwright install
-npm run test
+
+# Run unit tests
+npm run test:unit
+
+# Run with coverage
+npm run test:unit:coverage
+
+# Run in watch mode (for development)
+npm run test:unit:watch
 ```
 
-Or run the Playwright UI tester:
+**Test coverage:** 15 unit tests covering constants and components
+
+#### E2E Tests (Playwright)
 
 ```bash
+cd frontend
+npx playwright install
+
+# Run E2E tests
+npm run test
+
+# Run Playwright UI tester
 npm run test:ui
 ```
+
+### Test Documentation
+
+- **Detailed coverage analysis:** `docs/test-coverage-analysis.md`
+- **Testing summary:** `docs/testing-summary.md`
+- **HTML coverage report:** `backend/htmlcov/index.html` (after running tests)

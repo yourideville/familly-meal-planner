@@ -11,7 +11,12 @@
       "Bash(cp *)",
       "Bash(npm run *)",
       "Bash(python *)",
-      "Bash(source *)"
+      "Bash(source *)",
+      "Bash(/home/youri/projects/sources/.venv/bin/python *)",
+      "Bash(npm install *)",
+      "Bash(rm *)",
+      "Bash(git diff *)",
+      "Bash(pytest *)"
     ]
   },
   "$version": 3

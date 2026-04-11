@@ -17,6 +17,8 @@ members.csv
 
 # Local test artifacts and coverage
 backend/.coverage
+backend/htmlcov/
 frontend/playwright-report/
 frontend/test-results/
 frontend/tmp-playwright-output/
+frontend/coverage/
