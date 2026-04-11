@@ -2,28 +2,21 @@ import { useEffect, useState } from "react";
 import type { MenuPeriod, Weekday, WeeklyMenuResponse } from "../types/domain";
 import { WEEK_DAY_LABELS_FR, WEEK_DAYS } from "../constants/weekdays";
 import { MEAL_LABELS_FR, MEALS } from "../constants/meals";
+import { WEEKLY_MENU_LABELS } from "../constants/weekly-menu";
 import { WeekSelector } from "../components/WeekSelector";
 import { getMenuPeriods } from "../api/client";
+import { getDateForDay } from "../utils/date";
 
 interface WeeklyMenuPageProps {
   menu: WeeklyMenuResponse | null;
   onRefresh: () => Promise<void>;
 }
 
-function getDateForDay(periodStart: string, dayIndex: number): string {
-  const start = new Date(periodStart);
-  const targetDate = new Date(start);
-  targetDate.setDate(start.getDate() + dayIndex);
-  
-  const day = String(targetDate.getDate()).padStart(2, '0');
-  const month = String(targetDate.getMonth() + 1).padStart(2, '0');
-  return `${day}/${month}`;
-}
-
 export function WeeklyMenuPage({ menu, onRefresh }: WeeklyMenuPageProps) {
   const [periods, setPeriods] = useState<MenuPeriod[]>([]);
   const [selectedPeriod, setSelectedPeriod] = useState<string | null>(null);
   const [loadingPeriod, setLoadingPeriod] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     void loadPeriods();
@@ -31,10 +24,12 @@ export function WeeklyMenuPage({ menu, onRefresh }: WeeklyMenuPageProps) {
 
   async function loadPeriods() {
     try {
+      setLoadError(null);
       const periodList = await getMenuPeriods();
       setPeriods(periodList);
     } catch (error) {
       console.error("Failed to load periods:", error);
+      setLoadError("Impossible de charger les périodes.");
     }
   }
 
@@ -54,22 +49,23 @@ export function WeeklyMenuPage({ menu, onRefresh }: WeeklyMenuPageProps) {
     }
   }
 
-  const itemsByDay = menu?.items.reduce<Record<string, Record<string, string>>>(
+  const itemsByDay = menu?.items.reduce<Record<Weekday, Record<string, string>>>(
     (acc, item) => {
-      const dayGroup = acc[item.day] ?? { lunch: "Pas encore de gagnant", dinner: "Pas encore de gagnant" };
-      dayGroup[item.meal] = item.dish?.name ?? "Pas encore de gagnant";
+      const dayGroup = acc[item.day] ?? { lunch: WEEKLY_MENU_LABELS.noWinner, dinner: WEEKLY_MENU_LABELS.noWinner };
+      dayGroup[item.meal] = item.dish?.name ?? WEEKLY_MENU_LABELS.noWinner;
       acc[item.day] = dayGroup;
       return acc;
     },
-    {},
+    {} as Record<Weekday, Record<string, string>>,
   );
 
   // Map weekdays to their position in the 8-day cycle (Thu-Thu)
+  // Note: Thursday appears first in the array, so indexOf returns 0 for Thursday
   const weekdayOrder: Weekday[] = [
-    "thursday", "friday", "saturday", "sunday", 
-    "monday", "tuesday", "wednesday", "thursday"
+    "thursday", "friday", "saturday", "sunday",
+    "monday", "tuesday", "wednesday",
   ];
-  
+
   const periodStart = menu?.start_date;
   const periodLabel = menu?.period_label ?? "";
 
@@ -77,11 +73,11 @@ export function WeeklyMenuPage({ menu, onRefresh }: WeeklyMenuPageProps) {
     <section className="card">
       <div className="section-head section-head-row">
         <div>
-          <h2>Menu hebdomadaire</h2>
+          <h2>{WEEKLY_MENU_LABELS.title}</h2>
           {periodLabel && (
-            <p className="period-label">Menu du {periodLabel}</p>
+            <p className="period-label">{WEEKLY_MENU_LABELS.menuOf} {periodLabel}</p>
           )}
-          <p>Visualisez les plats retenus pour chaque jour.</p>
+          <p>{WEEKLY_MENU_LABELS.description}</p>
         </div>
         <div className="menu-actions">
           <WeekSelector
@@ -89,16 +85,22 @@ export function WeeklyMenuPage({ menu, onRefresh }: WeeklyMenuPageProps) {
             selectedPeriod={selectedPeriod}
             onSelect={handlePeriodSelect}
           />
-          <button 
-            onClick={() => void onRefresh()} 
+          <button
+            onClick={() => void onRefresh()}
             type="button"
             disabled={loadingPeriod}
           >
-            {loadingPeriod ? "Chargement..." : "Actualiser le menu"}
+            {loadingPeriod ? WEEKLY_MENU_LABELS.loading : WEEKLY_MENU_LABELS.refresh}
           </button>
         </div>
       </div>
-      
+
+      {loadError && (
+        <div className="error-message" role="alert">
+          {loadError}
+        </div>
+      )}
+
       <table className="weekly-menu-table">
         <thead>
           <tr>
@@ -111,11 +113,11 @@ export function WeeklyMenuPage({ menu, onRefresh }: WeeklyMenuPageProps) {
         <tbody>
           {WEEK_DAYS.map((day, index) => {
             // Calculate actual date for this day in the period
-            const dayIndex = weekdayOrder.indexOf(day as any);
-            const dateLabel = periodStart && dayIndex >= 0 
+            const dayIndex = weekdayOrder.indexOf(day);
+            const dateLabel = periodStart && dayIndex >= 0
               ? getDateForDay(periodStart, dayIndex)
               : null;
-            
+
             return (
               <tr key={day}>
                 <td>
@@ -123,7 +125,7 @@ export function WeeklyMenuPage({ menu, onRefresh }: WeeklyMenuPageProps) {
                   {dateLabel && <span className="weekday-date"> ({dateLabel})</span>}
                 </td>
                 {MEALS.map((meal) => (
-                  <td key={meal}>{itemsByDay?.[day]?.[meal] ?? "Pas encore de gagnant"}</td>
+                  <td key={meal}>{itemsByDay?.[day]?.[meal] ?? WEEKLY_MENU_LABELS.noWinner}</td>
                 ))}
               </tr>
             );

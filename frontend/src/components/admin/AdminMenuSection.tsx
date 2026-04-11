@@ -3,6 +3,7 @@ import { AdminButton } from "./AdminButton";
 import { AdminSection } from "./AdminSection";
 import { MEAL_LABELS_FR, MEALS } from "../../constants/meals";
 import { WEEK_DAY_LABELS_FR, WEEK_DAYS } from "../../constants/weekdays";
+import { ADMIN_MENU_LABELS } from "../../constants/admin-menu";
 import type { Dish, Meal, Vote, WeeklyMenuResponse, Weekday } from "../../types/domain";
 
 interface AdminMenuSectionProps {
@@ -76,10 +77,10 @@ export function AdminMenuSection({
 
   return (
     <div className="admin-body">
-      <AdminSection title="Remplacement manuel" description="Forcer un plat spécifique pour un jour et un repas.">
+      <AdminSection title={ADMIN_MENU_LABELS.manualReplacement} description={ADMIN_MENU_LABELS.forceDishPlaceholder}>
         <div className="form-grid">
           <label>
-            Jour
+            {ADMIN_MENU_LABELS.day}
             <select value={selectedDay} onChange={(event) => onSelectDay(event.target.value as Weekday)}>
               {WEEK_DAYS.map((day) => (
                 <option key={day} value={day}>
@@ -89,7 +90,7 @@ export function AdminMenuSection({
             </select>
           </label>
           <label>
-            Repas
+            {ADMIN_MENU_LABELS.meal}
             <select value={selectedMeal} onChange={(event) => onSelectMeal(event.target.value as Meal)}>
               {MEALS.map((meal) => (
                 <option key={meal} value={meal}>
@@ -99,9 +100,9 @@ export function AdminMenuSection({
             </select>
           </label>
           <label>
-            Plat manuel
+            {ADMIN_MENU_LABELS.manualDish}
             <select value={selectedManualDish} onChange={(event) => onSelectManualDish(event.target.value)}>
-              <option value="">Utiliser les votes</option>
+              <option value="">{ADMIN_MENU_LABELS.useVotes}</option>
               {filteredDishes.map((dish) => (
                 <option key={dish.id} value={dish.id}>
                   {dish.name}
@@ -112,11 +113,11 @@ export function AdminMenuSection({
         </div>
 
         <AdminButton onClick={onSetManualMenu} type="button">
-          Enregistrer le remplacement
+          {ADMIN_MENU_LABELS.saveReplacement}
         </AdminButton>
       </AdminSection>
 
-      <AdminSection title="Votes pour ce créneau" description={`Votes pour ${WEEK_DAY_LABELS_FR[selectedDay]} ${MEAL_LABELS_FR[selectedMeal]}.`}>
+      <AdminSection title={ADMIN_MENU_LABELS.votesForSlot} description={`Votes pour ${WEEK_DAY_LABELS_FR[selectedDay]} ${MEAL_LABELS_FR[selectedMeal]}.`}>
         {Object.keys(voteCounts).length === 0 ? (
           <p className="status-text">Aucun vote pour ce créneau.</p>
         ) : (
@@ -137,16 +138,16 @@ export function AdminMenuSection({
         )}
       </AdminSection>
 
-      <AdminSection title="Validation finale" description="Valider ou dévalider le menu de la semaine.">
+      <AdminSection title={ADMIN_MENU_LABELS.validateMenu} description="Valider ou dévalider le menu de la semaine.">
         <div className="button-pair">
           <AdminButton onClick={onValidateMenu} type="button" disabled={menu?.finalized}>
-            Valider le menu
+            {ADMIN_MENU_LABELS.validateMenu}
           </AdminButton>
           <AdminButton onClick={onUnvalidateMenu} type="button" disabled={!menu?.finalized} danger>
-            Dévalider le menu
+            {ADMIN_MENU_LABELS.unvalidateMenu}
           </AdminButton>
         </div>
-        <p className="status-text">État finalisé : {menu?.finalized ? "oui" : "non"}</p>
+        <p className="status-text">{ADMIN_MENU_LABELS.finalizedState} : {menu?.finalized ? ADMIN_MENU_LABELS.yes : ADMIN_MENU_LABELS.no}</p>
       </AdminSection>
     </div>
   );
