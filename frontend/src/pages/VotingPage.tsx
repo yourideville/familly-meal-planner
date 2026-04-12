@@ -1,10 +1,10 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
-import { createVote, getMembers, getVoteAvailability } from "../api/client";
+import { createVote, getMembers, getVoteAvailability, getVotes } from "../api/client";
 import { WEEK_DAY_LABELS_FR, WEEK_DAYS } from "../constants/weekdays";
 import { MEAL_LABELS_FR, MEALS } from "../constants/meals";
 import { INITIAL_AVAILABILITY } from "../constants/availability";
-import type { Dish, DishCategory, Meal, VoteSlot, VotePayload, Weekday, AvailabilityMap, WeeklyMenuResponse } from "../types/domain";
+import type { Dish, DishCategory, Meal, Vote, VoteSlot, VotePayload, Weekday, AvailabilityMap, WeeklyMenuResponse } from "../types/domain";
 
 interface VotingPageProps {
   dishes: Dish[];
@@ -28,6 +28,7 @@ export function VotingPage({ dishes, menu }: VotingPageProps) {
   const [members, setMembers] = useState<string[]>([]);
   const [selectedMember, setSelectedMember] = useState("");
   const [availability, setAvailability] = useState<AvailabilityMap>({ ...INITIAL_AVAILABILITY });
+  const [votes, setVotes] = useState<Vote[]>([]);
   const [message, setMessage] = useState("");
 
   useEffect(() => {
@@ -71,6 +72,19 @@ export function VotingPage({ dishes, menu }: VotingPageProps) {
     void loadAvailability();
   }, []);
 
+  useEffect(() => {
+    async function loadVotesData() {
+      try {
+        const votesData = await getVotes();
+        setVotes(votesData);
+      } catch {
+        // Silently fail - votes are only for pre-selection
+      }
+    }
+
+    void loadVotesData();
+  }, []);
+
   const openDays = useMemo(
     () => WEEK_DAYS.filter((item) => availability[item].lunch || availability[item].dinner),
     [availability],
@@ -102,6 +116,26 @@ export function VotingPage({ dishes, menu }: VotingPageProps) {
   }, [meal, openMeals]);
 
   const slotCategory = getCategoryForSlot(day, meal);
+
+  // Find existing vote for the selected member and slot
+  const existingVote = useMemo(() => {
+    if (!selectedMember) return null;
+    return votes.find(
+      (vote) =>
+        vote.user_name === selectedMember &&
+        vote.day === day &&
+        vote.meal === meal,
+    );
+  }, [votes, selectedMember, day, meal]);
+
+  // Sync dish selection with existing vote when slot changes
+  useEffect(() => {
+    if (existingVote) {
+      setDishId(existingVote.dish_id);
+    } else {
+      setDishId("");
+    }
+  }, [existingVote]);
 
   const availableDishes = useMemo(() => {
     const shortlistIds = menu?.shortlists?.[day]?.[meal];
@@ -206,8 +240,14 @@ export function VotingPage({ dishes, menu }: VotingPageProps) {
           </select>
         </label>
         <p>Catégorie du créneau : {slotCategory.split("_").join(" ")}</p>
+        {existingVote && (
+          <p className="info">
+            Votre vote actuel :{" "}
+            {availableDishes.find((d) => d.id === existingVote.dish_id)?.name ?? "Plat inconnu"}
+          </p>
+        )}
         <button type="submit" disabled={!slotAvailable || openDays.length === 0 || openMeals.length === 0}>
-          Envoyer le vote
+          {existingVote ? "Modifier le vote" : "Envoyer le vote"}
         </button>
         {openDays.length === 0 && <p className="error">Aucun créneau de vote ouvert actuellement.</p>}
       </form>

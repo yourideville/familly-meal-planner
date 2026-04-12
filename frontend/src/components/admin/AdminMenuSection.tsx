@@ -2,9 +2,20 @@ import { useMemo } from "react";
 import { AdminButton } from "./AdminButton";
 import { AdminSection } from "./AdminSection";
 import { MEAL_LABELS_FR, MEALS } from "../../constants/meals";
-import { WEEK_DAY_LABELS_FR, WEEK_DAYS } from "../../constants/weekdays";
+import { WEEK_DAY_LABELS_FR } from "../../constants/weekdays";
 import { ADMIN_MENU_LABELS } from "../../constants/admin-menu";
 import type { Dish, Meal, Vote, WeeklyMenuResponse, Weekday } from "../../types/domain";
+
+/** Days in the menu period order: Thursday to Wednesday */
+const MENU_DAYS: Weekday[] = [
+  "thursday",
+  "friday",
+  "saturday",
+  "sunday",
+  "monday",
+  "tuesday",
+  "wednesday",
+];
 
 interface AdminMenuSectionProps {
   dishes: Dish[];
@@ -82,7 +93,7 @@ export function AdminMenuSection({
           <label>
             {ADMIN_MENU_LABELS.day}
             <select value={selectedDay} onChange={(event) => onSelectDay(event.target.value as Weekday)}>
-              {WEEK_DAYS.map((day) => (
+              {MENU_DAYS.map((day) => (
                 <option key={day} value={day}>
                   {WEEK_DAY_LABELS_FR[day]}
                 </option>

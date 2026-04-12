@@ -1,11 +1,22 @@
 import { useEffect, useState } from "react";
 import type { MenuPeriod, Weekday, WeeklyMenuResponse } from "../types/domain";
-import { WEEK_DAY_LABELS_FR, WEEK_DAYS } from "../constants/weekdays";
+import { WEEK_DAY_LABELS_FR } from "../constants/weekdays";
 import { MEAL_LABELS_FR, MEALS } from "../constants/meals";
 import { WEEKLY_MENU_LABELS } from "../constants/weekly-menu";
 import { WeekSelector } from "../components/WeekSelector";
 import { getMenuPeriods } from "../api/client";
 import { getDateForDay } from "../utils/date";
+
+/** Days in the menu period order: Thursday to Wednesday */
+const MENU_DAYS: Weekday[] = [
+  "thursday",
+  "friday",
+  "saturday",
+  "sunday",
+  "monday",
+  "tuesday",
+  "wednesday",
+];
 
 interface WeeklyMenuPageProps {
   menu: WeeklyMenuResponse | null;
@@ -59,13 +70,6 @@ export function WeeklyMenuPage({ menu, onRefresh }: WeeklyMenuPageProps) {
     {} as Record<Weekday, Record<string, string>>,
   );
 
-  // Map weekdays to their position in the 8-day cycle (Thu-Thu)
-  // Note: Thursday appears first in the array, so indexOf returns 0 for Thursday
-  const weekdayOrder: Weekday[] = [
-    "thursday", "friday", "saturday", "sunday",
-    "monday", "tuesday", "wednesday",
-  ];
-
   const periodStart = menu?.start_date;
   const periodLabel = menu?.period_label ?? "";
 
@@ -111,11 +115,9 @@ export function WeeklyMenuPage({ menu, onRefresh }: WeeklyMenuPageProps) {
           </tr>
         </thead>
         <tbody>
-          {WEEK_DAYS.map((day, index) => {
-            // Calculate actual date for this day in the period
-            const dayIndex = weekdayOrder.indexOf(day);
-            const dateLabel = periodStart && dayIndex >= 0
-              ? getDateForDay(periodStart, dayIndex)
+          {MENU_DAYS.map((day, index) => {
+            const dateLabel = periodStart
+              ? getDateForDay(periodStart, index)
               : null;
 
             return (
