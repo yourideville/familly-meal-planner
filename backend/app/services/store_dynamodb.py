@@ -88,7 +88,9 @@ class DynamoDBStore(StoreInterface):
 
     def list_dishes(self) -> list[Dish]:
         self._ensure_store_loaded()
-        return list(self._dishes.values())
+        dishes = list(self._dishes.values())
+        logger.debug("list_dishes: returning %d dishes", len(dishes))
+        return dishes
 
     def create_dish(self, payload: CreateDishRequest) -> Dish:
         self._ensure_store_loaded()
@@ -102,6 +104,7 @@ class DynamoDBStore(StoreInterface):
         )
         self._dishes[dish.id] = dish
         self._persist_dish(dish)
+        logger.info("create_dish: id=%s name=%s category=%s", dish.id, dish.name, dish.category)
         return dish
 
     def update_dish(self, dish_id: str, payload: CreateDishRequest) -> Dish:
@@ -117,6 +120,7 @@ class DynamoDBStore(StoreInterface):
         dish.category = payload.category
         self._dishes[dish_id] = dish
         self._persist_dish(dish)
+        logger.info("update_dish: id=%s name=%s category=%s", dish_id, dish.name, dish.category)
         return dish
 
     def delete_dish(self, dish_id: str) -> None:
@@ -128,10 +132,13 @@ class DynamoDBStore(StoreInterface):
 
         self._dishes.pop(dish_id)
         self._delete_dish_from_db(dish_id)
+        logger.info("delete_dish: id=%s", dish_id)
 
     def list_members(self) -> list[str]:
         self._ensure_store_loaded()
-        return list(self._members)
+        members = list(self._members)
+        logger.debug("list_members: returning %d members", len(members))
+        return members
 
     def add_member(self, name: str) -> str:
         self._ensure_store_loaded()
@@ -141,6 +148,7 @@ class DynamoDBStore(StoreInterface):
             raise ValueError("Member already exists")
         self._members.append(name)
         self._persist_member(name)
+        logger.info("add_member: name=%s", name)
         return name
 
     def update_member(self, current_name: str, new_name: str) -> str:
@@ -156,6 +164,7 @@ class DynamoDBStore(StoreInterface):
         self._delete_member_from_db(current_name)
         self._persist_member(new_name)
         self._update_votes_member_name(current_name, new_name)
+        logger.info("update_member: %s -> %s", current_name, new_name)
         return new_name
 
     def delete_member(self, name: str) -> None:
@@ -166,20 +175,22 @@ class DynamoDBStore(StoreInterface):
         self._members.remove(name)
         self._votes[:] = [vote for vote in self._votes if vote.user_name != name]
         self._delete_member_from_db(name)
+        logger.info("delete_member: name=%s", name)
 
     def list_votes(self) -> list[Vote]:
         self._ensure_store_loaded()
+        logger.debug("list_votes: returning %d votes", len(self._votes))
         return self._votes
 
     def add_vote(self, payload: CreateVoteRequest) -> Vote:
         self._ensure_store_loaded()
         if self._finalized:
             raise ValueError("Le menu est validé et ne peut plus recevoir de votes")
-        
+
         # Check if voting window is open (Friday-Sunday)
         if not self.is_voting_window_open():
             raise ValueError("Le vote n'est ouvert que du vendredi au dimanche")
-        
+
         if payload.dish_id not in self._dishes:
             raise KeyError("Dish not found")
         if payload.user_name not in self._members:
@@ -200,6 +211,10 @@ class DynamoDBStore(StoreInterface):
         if existing_vote is not None:
             existing_vote.dish_id = payload.dish_id
             self._persist_vote(existing_vote)
+            logger.info(
+                "add_vote (update): user=%s day=%s meal=%s dish_id=%s",
+                payload.user_name, payload.day, payload.meal, payload.dish_id,
+            )
             return existing_vote
 
         vote = Vote(
@@ -210,6 +225,10 @@ class DynamoDBStore(StoreInterface):
         )
         self._votes.append(vote)
         self._persist_vote(vote)
+        logger.info(
+            "add_vote (new): user=%s day=%s meal=%s dish_id=%s",
+            payload.user_name, payload.day, payload.meal, payload.dish_id,
+        )
         return vote
 
     def list_vote_availability(self) -> list[VoteSlot]:
@@ -224,6 +243,7 @@ class DynamoDBStore(StoreInterface):
                         available=self._vote_availability[day][meal],
                     )
                 )
+        logger.debug("list_vote_availability: returning %d slots", len(slots))
         return slots
 
     def set_vote_availability(self, slots: list[VoteSlot]) -> list[VoteSlot]:
@@ -235,6 +255,7 @@ class DynamoDBStore(StoreInterface):
                 raise ValueError("Invalid vote slot")
             self._vote_availability[slot.day][slot.meal] = slot.available
             self._persist_config_availability(slot.day, slot.meal, slot.available)
+        logger.info("set_vote_availability: %d slots updated", len(slots))
         return self.list_vote_availability()
 
     def set_shortlist(self, day: Weekday, meal: Meal, dish_ids: list[str]) -> None:
@@ -250,6 +271,7 @@ class DynamoDBStore(StoreInterface):
 
         self._shortlists[day][meal] = set(dish_ids)
         self._persist_config_shortlist(day, meal, dish_ids)
+        logger.info("set_shortlist: day=%s meal=%s dish_ids=%s", day, meal, dish_ids)
 
     def set_shortlists(self, slots: list[SetShortlistRequest]) -> None:
         self._ensure_store_loaded()
@@ -270,6 +292,7 @@ class DynamoDBStore(StoreInterface):
             raise KeyError("Dish not found")
         self._manual_menu[day][meal] = dish_id
         self._persist_config_menu(day, meal, dish_id)
+        logger.info("set_menu_item: day=%s meal=%s dish_id=%s", day, meal, dish_id)
         return self.generate_weekly_menu()
 
     def generate_weekly_menu(
@@ -362,12 +385,14 @@ class DynamoDBStore(StoreInterface):
     def validate_menu(self) -> WeeklyMenuResponse:
         self._ensure_store_loaded()
         if self._finalized and self._final_weekly_menu is not None:
+            logger.info("validate_menu: already finalized, returning cached menu")
             return self._final_weekly_menu
 
+        logger.info("validate_menu: archiving period and finalizing menu")
         # Archive current period with menu
         if self._active_period_id:
             self.archive_period(self._active_period_id)
-        
+
         # Delete all votes
         self.delete_all_votes()
 
@@ -383,11 +408,12 @@ class DynamoDBStore(StoreInterface):
             shortlists=self._final_weekly_menu.shortlists,
         )
         self._persist_config_finalized(True)
+        logger.info("validate_menu: menu finalized successfully")
         return self._final_weekly_menu
 
     def unvalidate_menu(self) -> WeeklyMenuResponse:
         self._ensure_store_loaded()
-        
+        logger.info("unvalidate_menu: un-finalizing menu")
         self._finalized = False
         self._final_weekly_menu = None
         self._persist_config_finalized(False)
@@ -448,7 +474,27 @@ class DynamoDBStore(StoreInterface):
 
     def invalidate_store_cache(self) -> None:
         """Mark the in-memory cache as stale so the next operation reloads."""
+        if not self._persistence_loaded:
+            return
+        # Clear all data structures to prevent duplication on reload
+        self._dishes.clear()
+        self._votes.clear()
+        self._members.clear()
+        self._finalized = False
+        self._final_weekly_menu = None
+        self._vote_availability = {
+            day: {meal: True for meal in MEALS} for day in WEEK_DAYS
+        }
+        self._shortlists = {
+            day: {meal: set() for meal in MEALS} for day in WEEK_DAYS
+        }
+        self._manual_menu = {
+            day: {meal: None for meal in MEALS} for day in WEEK_DAYS
+        }
+        self._periods.clear()
+        self._active_period_id = None
         self._persistence_loaded = False
+        logger.debug("invalidate_store_cache: cache cleared, will reload on next read")
 
     # -------------------------------------------------------------------------
     # Data loading from DynamoDB
@@ -458,12 +504,20 @@ class DynamoDBStore(StoreInterface):
         """Load state from DynamoDB if not already loaded."""
         if self._persistence_loaded:
             return
-        logger.info("Loading persistent state from DynamoDB")
+        logger.info("Loading persistent state from DynamoDB (cache miss)")
         self._load_dishes_from_db()
         self._load_members_from_db()
         self._load_votes_from_db()
         self._load_config_from_db()
         self._persistence_loaded = True
+        logger.info(
+            "Persistent state loaded from DynamoDB: %d dishes, %d members, %d votes, "
+            "finalized=%s",
+            len(self._dishes),
+            len(self._members),
+            len(self._votes),
+            self._finalized,
+        )
 
     def _load_dishes_from_db(self) -> None:
         """Load all dishes from DynamoDB."""
