@@ -1,4 +1,4 @@
-from aws_cdk import CfnOutput, Duration, Stack, aws_apigatewayv2_alpha as apigw, aws_apigatewayv2_integrations_alpha as integrations, aws_iam as iam, aws_lambda as lambda_
+from aws_cdk import CfnOutput, Duration, RemovalPolicy, Stack, aws_apigatewayv2_alpha as apigw, aws_apigatewayv2_integrations_alpha as integrations, aws_iam as iam, aws_lambda as lambda_, aws_logs as logs
 from aws_cdk.aws_lambda_python_alpha import PythonLayerVersion, BundlingOptions
 from constructs import Construct
 
@@ -40,9 +40,19 @@ class BackendStack(Stack):
             ),
         )
 
+        # Explicit CloudWatch LogGroup with 7-day retention
+        log_group = logs.LogGroup(
+            self,
+            "BackendFunctionLogGroup",
+            log_group_name=f"/aws/lambda/BackendFunction-{stage}",
+            retention=logs.RetentionDays.ONE_WEEK,
+            removal_policy=RemovalPolicy.DESTROY,
+        )
+
         self.backend_function = lambda_.Function(
             self,
             "BackendFunction",
+            function_name=f"BackendFunction-{stage}",
             code=lambda_.Code.from_asset(
                 "../../backend",
                 exclude=["tests", "pytest.ini", "requirements.txt", "Dockerfile", "__pycache__", "*.pyc"],
@@ -50,8 +60,9 @@ class BackendStack(Stack):
             handler="app.lambda_handler.handler",
             runtime=lambda_.Runtime.PYTHON_3_13,
             architecture=lambda_.Architecture.ARM_64,
-            timeout=Duration.seconds(10),  # Reduced from 30s - most requests should complete in <1s
+            timeout=Duration.seconds(45),
             layers=[deps_layer],
+            log_group=log_group,
             environment={
                 "TABLE_NAME": table.table_name,
                 "STAGE": stage,
@@ -61,6 +72,8 @@ class BackendStack(Stack):
                 "CORS_ALLOWED_ORIGINS": cors_origins,
                 "SECURE_COOKIE": "true",
                 "COOKIE_SAMESITE": "none",
+                "POWERTOOLS_SERVICE_NAME": f"family-meal-planner-{stage}",
+                "POWERTOOLS_LOG_LEVEL": "INFO",
             },
         )
 
