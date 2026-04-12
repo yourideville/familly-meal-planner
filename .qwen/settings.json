@@ -16,7 +16,9 @@
       "Bash(npm install *)",
       "Bash(rm *)",
       "Bash(git diff *)",
-      "Bash(pytest *)"
+      "Bash(pytest *)",
+      "Bash(git stash)",
+      "Bash(git stash *)"
     ]
   },
   "$version": 3
